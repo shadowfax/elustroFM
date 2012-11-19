@@ -786,7 +786,8 @@ class TinyImageManager {
 
   function GetThumb($dir, $md5, $filename, $mode, $width = 100, $height = 100) {
     $path = realpath(DIR_ROOT . DS . $dir);
-    $ext = strtolower(end(explode('.', $filename))); // filename extention
+    $ext = explode('.', $filename);
+    $ext = strtolower(end($ext)); // filename extention
     $thumbFilename = DS . '.thumbs' . DS . $md5 . '_' . $width . '_' . $height . '_' . $mode . '.' . $ext;
 
     // if thumb already exists
