@@ -248,31 +248,32 @@ class TinyImageManager {
    * @return array
    */
   function Tree($beginFolder) {
+  	if (!is_dir($beginFolder)) return false;
+  	
     $struct = array();
-    $handle = opendir($beginFolder);
-    if ($handle) {
-      $struct[$beginFolder]['path'] = str_replace(array( $this->dir['file'], $this->dir['image'] ), '', $beginFolder);
-      $tmp = preg_split('[\\/]', $beginFolder);
-      $tmp = array_filter($tmp);
-      end($tmp);
-      $struct[$beginFolder]['name'] = current($tmp);
-      $struct[$beginFolder]['count'] = 0;
-      while (false !== ($file = readdir($handle))) {
-        if ($file != "." && $file != ".." && $file != '.thumbs' && $file != '_thumbs') {
-          if (is_dir($beginFolder . '/' . $file)) {
-            $struct[$beginFolder]['childs'][] = $this->Tree($beginFolder . '/' . $file);
-          } else {
-            $struct[$beginFolder]['count']++;
-          }
-        }
-      }
-      closedir($handle);
-      asort($struct);
+    
+    $struct[$beginFolder]['path'] = str_replace(array( $this->dir['file'], $this->dir['image'] ), '', $beginFolder);
+	$tmp = preg_split('[\\/]', $beginFolder);
+	$tmp = array_filter($tmp);
+	end($tmp);
+	$struct[$beginFolder]['name'] = current($tmp);
+	$struct[$beginFolder]['count'] = 0;
 
-      return $struct;
-    }
-
-    return false;
+	if (!is_readable($beginFolder)) return $struct;
+	
+	$dir = new DirectoryIterator($beginFolder);
+	foreach ($dir as $file) {
+		if ((!$file->isDot()) && (substr($file->getFilename(),0, 1) !== ".")) {
+			if ($file->isDir()) {
+				$struct[$beginFolder]['childs'][] = $this->Tree($beginFolder . '/' . $file->getFilename());
+			} else {
+				$struct[$beginFolder]['count']++;
+			}
+		}	
+	}
+    
+	asort($struct);
+	return $struct;
   }
 
   /**
@@ -469,7 +470,21 @@ class TinyImageManager {
       $files = array();
     }
 
-
+    $newFiles = 0;
+    
+	$dirIterator = new DirectoryIterator($dir);
+	foreach ($dirIterator as $file) {
+		if ($file->isFile() && !isset($files[$file->getFilename()])) {
+			if (!empty($newData[$file->getFilename()])) {
+				$files[$file->getFilename()] = $newData[$file->getFilename()];
+			} else {
+				$files[$file->getFilename()] = $this->getFileInfo($dir, $type, $file->getFilename());
+			}
+			$newFiles++;
+		}	
+	}
+	
+	/*
     $handle = opendir($dir);
 
 
@@ -487,9 +502,10 @@ class TinyImageManager {
       }
       closedir($handle);
     }
-
+*/
+	
     // if there are new files in directory, re-sort and resave .db file
-    if ($newFiles) {
+    if ($newFiles > 0) {
       $this->sortFiles($files);
       // save the file
       $dbfilehandle = fopen($dbfile, "w");
