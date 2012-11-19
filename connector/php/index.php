@@ -527,9 +527,11 @@ class TinyImageManager {
 
     $allowed = array_merge($this->ALLOWED_IMAGES, $this->ALLOWED_FILES);
 
-    if (!in_array(strtolower($file_info['extension']), $allowed)) {
-      die('You cannot upload such files here!');
-    }
+    // This funcks up if we find an invalid file in our directory
+    // My utput got broken due to a thumbs.db file created by windows.
+    //if (!in_array(strtolower($file_info['extension']), $allowed)) {
+    //  die('You cannot upload such files here!');
+    //}
 
     $link = str_replace(array( '/\\', '//', '\\\\', '\\'
                         ), DS, DS . str_replace(realpath(DIR_ROOT), '', realpath($fileFullPath)));
@@ -568,6 +570,27 @@ class TinyImageManager {
       return false;
     }
     
+    // Get parameters
+    $chunk = isset($_REQUEST["chunk"]) ? $_REQUEST["chunk"] : 0;
+    $chunks = isset($_REQUEST["chunks"]) ? $_REQUEST["chunks"] : 0;
+    $fileName = isset($_REQUEST["name"]) ? $_REQUEST["name"] : '';
+
+
+    // get extension and filename
+    if (strrpos($fileName, '.') !== false) {
+      $ext = strrpos($fileName, '.');
+      $extension = substr($fileName, $ext);
+      $fileName = substr($fileName, 0, $ext);
+      
+      $allowed = array_merge($this->ALLOWED_IMAGES, $this->ALLOWED_FILES);
+
+      if (!in_array(strtolower($extension), $allowed)) {
+        return false;
+      }
+    }
+    $cleanFileName = $this->encodestring($fileName);
+    $file = $cleanFileName . $extension;
+    
     // info about file
     $files = array();
 
@@ -582,22 +605,6 @@ class TinyImageManager {
     if (!ini_get('safe_mode')) {
       set_time_limit(5 * 60);
     }
-
-
-    // Get parameters
-    $chunk = isset($_REQUEST["chunk"]) ? $_REQUEST["chunk"] : 0;
-    $chunks = isset($_REQUEST["chunks"]) ? $_REQUEST["chunks"] : 0;
-    $fileName = isset($_REQUEST["name"]) ? $_REQUEST["name"] : '';
-
-
-    // get extension and filename
-    if (strrpos($fileName, '.') !== false) {
-      $ext = strrpos($fileName, '.');
-      $extension = substr($fileName, $ext);
-      $fileName = substr($fileName, 0, $ext);
-    }
-    $cleanFileName = $this->encodestring($fileName);
-    $file = $cleanFileName . $extension;
 
     // Make sure the fileName is unique but only if chunking is disabled
     if ($chunks < 2 && file_exists($dir . '/' . $file)) {
