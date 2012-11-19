@@ -14,6 +14,8 @@ class TinyImageManager {
   var $total_pages = 1;
   var $http_root;
 
+  protected $_config;
+  
   /**
    * Конструктор
    *
@@ -50,8 +52,25 @@ class TinyImageManager {
                                   'xhtml', 'xls', 'xlsx', 'xml', 'zip'
     );
 
-    $this->dir = array( 'image' => realpath(DIR_ROOT . DIR_IMAGES), 'file' => realpath(DIR_ROOT . DIR_FILES)
-    );
+    $this->_config['DIR_IMAGES'] = DIR_IMAGES;
+    $this->_config['DIR_FILES'] = DIR_FILES;
+    
+	// Get the user defined folder
+    $folders = !empty($_POST['folders']) && $_POST['folders'] !== 'undefined' ? $_POST['folders'] : null;
+    if ($folders !== null) {
+    	// Load the folder configuration array
+    	$public_folders = (include('config.folders.php'));
+    	
+    	if (isset($public_folders[$folders])) {
+    		$public_folders = $public_folders[$folders];
+    		if (isset($public_folders['image'])) $this->_config['DIR_IMAGES'] = $public_folders['image'];
+    		if (isset($public_folders['file'])) $this->_config['DIR_FILES'] = $public_folders['file']; 
+    	}
+    	unset($public_folders);
+    	unset($folders);
+    }
+    
+    $this->dir = array( 'image' => realpath(DIR_ROOT . $this->_config['DIR_IMAGES']), 'file' => realpath(DIR_ROOT . $this->_config['DIR_FILES']));
 
     $this->http_root = rtrim(HTTP_ROOT, '/');
 
@@ -285,13 +304,13 @@ class TinyImageManager {
       }
       $ret = '';
       if ($innerDirs == false) {
-        $directory_name = $type == 'image' ? DIR_IMAGES : DIR_FILES;
+        $directory_name = $type == 'image' ? $this->config['DIR_IMAGES'] : $this->_config['DIR_FILES'];
 
         return 'Wrong root directory (' . $directory_name . ')<br>';
       }
       foreach ($innerDirs as $v) {
         #TODO: language dependent root folder name
-        $ret = '<div class="folder folder' . ucfirst($type) . ' ' . $firstAct . '" path="" pathtype="' . $type . '">' . ($type == 'image' ? 'Images' : 'file') . ($v['count'] > 0 ? ' (' . $v['count'] . ')' : '') . '</div><div class="folderOpenSection" style="display:block;">';
+        $ret = '<div class="folder folder' . ucfirst($type) . ' ' . $firstAct . '" path="" pathtype="' . $type . '">' . ($type == 'image' ? 'Images' : 'Files') . ($v['count'] > 0 ? ' (' . $v['count'] . ')' : '') . '</div><div class="folderOpenSection" style="display:block;">';
         if (isset($v['childs'])) {
           $ret .= $this->DirStructure($type, $v['childs'], $currentDir, $level);
         }
@@ -796,7 +815,7 @@ class TinyImageManager {
       return $this->http_root . $dir . $thumbFilename;
     } else {
       // if not an image or we are in 'file' folder
-      if (in_array($ext, $this->ALLOWED_IMAGES) && strpos($dir, DIR_IMAGES) === 0) {
+      if (in_array($ext, $this->ALLOWED_IMAGES) && strpos($dir, $this->_config['DIR_IMAGES']) === 0) {
         //if it's an image, create thumb
         try {
           // if no width or height specified
@@ -903,7 +922,7 @@ class TinyImageManager {
     }
 
     $result = array();
-    $folder = ($pathtype == 'image') ? DIR_IMAGES : DIR_FILES;
+    $folder = ($pathtype == 'image') ? $this->_config['DIR_IMAGES'] : $this->_config['DIR_FILES'];
     if (realpath($realPath . '/') == realpath(DIR_ROOT . $folder . '/')) {
       $result['error'] = 'rootFolder';
     } else {

@@ -1,7 +1,8 @@
 (function () {
   "use strict";
   var standAlone = false, ImagesDialog = {}, popup;
-
+  var folders = "";
+  
   var tinyMCEPopup = window.tinyMCEPopup;
 
   if (typeof(tinyMCEPopup) !== 'undefined') {
@@ -79,7 +80,7 @@
     if (!page) {
       page = 1;
     }
-    var requestData = {action: 'openFolder'};
+    var requestData = {action: 'openFolder', 'folders': folders};
     if (defaultPath) {
       requestData['default'] = 1;
       forceTreeReload = true;
@@ -122,6 +123,9 @@
     if (!connector) {
       connector = 'php';
     }
+    
+    // Get user defined folders name
+    folders = getURLParam('folders');
 
     $win.on('resize.imagemanager',function (e) {
       e.preventDefault();
@@ -134,7 +138,7 @@
     $.ajax({
       type: "POST",
       url: ajaxPath,
-      data: {'action': 'setupData', 'lang': getURLParam('lang')},
+      data: {'action': 'setupData', 'lang': getURLParam('lang'), 'folders': folders},
       dataType: 'json',
       success: function (data) {
         $LANG = eval('('+data.lang+')');
@@ -368,7 +372,7 @@
       type: "POST",
       url: ajaxPath,
       dataType: 'json',
-      data: {'action': 'newfolder', 'type': type, 'path': path, 'name': newFolderName},
+      data: {'action': 'newfolder', 'type': type, 'path': path, 'name': newFolderName, 'folders': folders},
       success: function (data) {
         $loader.hide();
         if (data.error) {
@@ -412,7 +416,7 @@
         type: "POST",
         url: ajaxPath,
         dataType: 'json',
-        data: {'action': 'delfolder', 'type': path.type, 'path': path.path},
+        data: {'action': 'delfolder', 'type': path.type, 'path': path.path, 'folders': folders},
         success: function (data) {
           if (data.error) {
             $loader.hide();
@@ -444,7 +448,7 @@
     if (!files.length) {
       alert(_t("Select files for deleting.\n\nYou can select several files by holding CTRL key while clicking them."));
     } else {
-      var confirmText, requestData = {'action': 'delfile', 'type': path.type, 'path': path.path}, filesData = [];
+      var confirmText, requestData = {'action': 'delfile', 'type': path.type, 'path': path.path, 'folders': folders}, filesData = [];
       if (files.length === 1) {
         confirmText = _t('Delete file') + ' \"' + files.attr('filename') + '\"?';
         filesData.push({"md5": files.attr('md5'), 'filename': files.attr('filename')});
@@ -652,7 +656,7 @@
       type: "POST",
       url: "connector/php/",
       data: 'action=renamefile&path=' + path.path + '&pathtype=' + path.type + '&filename='
-                + $('.imageBlockAct').attr('filename') + '&newname=' + newname,
+                + $('.imageBlockAct').attr('filename') + '&newname=' + newname + '&folders=' + folders,
       success: function (data) {
         $loader.hide();
         if (data != 'error') {
