@@ -1,0 +1,22 @@
+plupload.addI18n({
+  'Select files': 'Seleccione archivos',
+  'Start upload': 'Iniciar subida',
+  'Add files to the upload queue and click the start button.': 'Agregue archivos a la cola de subida y pulse el botón "Iniciar cola".',
+  'Filename': 'Nombre de arhivo',
+  'Status': 'Estado',
+  'Size': 'Tamaño',
+  'Add files': 'Añadir archivos',
+  'Stop current upload': 'Detener subida actual',
+  'Start uploading queue': 'Iniciar cola',
+  'Uploaded %d/%d files': 'Subidos %d/%d archivos',
+  'N/A': 'N/A',
+  'Drag files here.': 'Arrastre los archivos aquí.',
+  'File extension error.': 'El tipo de archivo no está autorizado.',
+  'File size error.': 'El archivo es demasiado grande.',
+  'Init error.': 'Error de inicialización.',
+  'HTTP Error.': 'Error HTTP.',
+  'Security error.': 'Error de seguridad.',
+  'Generic error.': 'Error genérico.',
+  'Using runtime: ': 'Utilizando versión: ',
+  'IO error.': 'Error E/S.'
+});
