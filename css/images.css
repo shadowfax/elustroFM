@@ -231,7 +231,7 @@ body {
   user-select: none;
 }
 
-.folderImages {
+.folderImage {
   background: transparent url(../img/folder_open_image.png) 4px center no-repeat;
   font-size: 12px;
   padding: 3px 5px 0 25px;
@@ -241,7 +241,7 @@ body {
   white-space: nowrap;
 }
 
-.folderFiles {
+.folderFile {
   background: transparent url(../img/folder_open_document.png) 4px center no-repeat;
   font-size: 12px;
   padding: 3px 5px 0 25px;

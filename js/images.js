@@ -234,7 +234,7 @@
         });
       });
 
-  $tree.on('dblclick', '.folderImages,.folderFiles',function (e) {
+  $tree.on('dblclick', '.folderImage,.folderFile',function (e) {
     e.preventDefault();
     $(this).next().slideToggle('normal');
   }).on('dblclick', '.folderOpened,.folderS', function (e) {
@@ -255,10 +255,10 @@
   //Открыть загрузчик файлов
   $('#menuUploadFiles').click(function () {
     var path = getCurrentPath(), filterObj = {}, resizeObj = {};
-    if (path.type === 'images') {
-      filterObj = {title: _t('Images'), extensions: $UPLOAD_DATA.images.allowed.join(',')};
+    if (path.type === 'image') {
+      filterObj = {title: _t('Image'), extensions: $UPLOAD_DATA.images.allowed.join(',')};
       resizeObj = {width: $UPLOAD_DATA.images.width, height: $UPLOAD_DATA.images.height, quality: 90};
-    } else if (path.type === 'files') {
+    } else if (path.type === 'file') {
       filterObj = {title: _t('All files'), extensions:$UPLOAD_DATA.files.allowed.join(',')};
       resizeObj = {width: 0, height: 0, quality: 0};
     }
@@ -497,7 +497,7 @@
         }
       }).on('dblclick', '.imageBlock0',function () {
         var e = $(this);
-        if (e.attr('type') === 'files') {
+        if (e.attr('type') === 'file') {
           var filesize = e.attr('fsizetext');
           var text = '<a href="' + e.attr('linkto') + '" ' + addAttr + ' title="' + e.attr('fname') + '">';
           text += e.attr('fname');
@@ -599,7 +599,7 @@
       $('#footDate').text(file.attr('date'));
       $('#footLink a').text(file.attr('fname').substr(0, 18)).attr('href', file.attr('linkto'));
       $('#footSize').text(intToMb(file.attr('fsize')));
-      if (dirInfo.type == 'images' && file.attr('fwidth') !== 'N/A') {
+      if (dirInfo.type == 'image' && file.attr('fwidth') !== 'N/A') {
         imgDimensions = file.attr('fwidth') + 'x' + file.attr('fheight');
       } else {
         imgDimensions = _t('N/A');

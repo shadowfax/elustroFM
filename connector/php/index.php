@@ -50,7 +50,7 @@ class TinyImageManager {
                                   'xhtml', 'xls', 'xlsx', 'xml', 'zip'
     );
 
-    $this->dir = array( 'images' => realpath(DIR_ROOT . DIR_IMAGES), 'files' => realpath(DIR_ROOT . DIR_FILES)
+    $this->dir = array( 'image' => realpath(DIR_ROOT . DIR_IMAGES), 'file' => realpath(DIR_ROOT . DIR_FILES)
     );
 
     $this->http_root = rtrim(HTTP_ROOT, '/');
@@ -124,7 +124,7 @@ class TinyImageManager {
         } else {
           $path = $_SESSION['tiny_image_manager_path'] = $_POST['path'];
           // если тип не задан, показываем изображения
-          $type = $_POST['type'] ? $_POST['type'] : 'images';
+          $type = $_POST['type'] ? $_POST['type'] : 'image';
           $_SESSION['tiny_image_manager_type'] = $type;
         }
 
@@ -142,17 +142,17 @@ class TinyImageManager {
         // генерируем дерево каталогов
         $result['tree'] = '';
         // если мы показываем файлы, а не картинки, то картинки надо пропускать
-        if ($type == 'files') {
+        if ($type == 'file') {
           $this->firstAct = false;
-          $result['tree'] .= $this->DirStructure('images', 'first');
+          $result['tree'] .= $this->DirStructure('image', 'first');
           $this->firstAct = $path ? false : true;
-          $result['tree'] .= $this->DirStructure('files', 'first', $this->AccessDir($path, 'files'));
+          $result['tree'] .= $this->DirStructure('file', 'first', $this->AccessDir($path, 'file'));
         } else {
           // иначе показываем каталог в разделе изображения
           $this->firstAct = $path ? false : true;
-          $result['tree'] .= $this->DirStructure('images', 'first', $this->AccessDir($path, 'images'));
+          $result['tree'] .= $this->DirStructure('image', 'first', $this->AccessDir($path, 'image'));
           $this->firstAct = false;
-          $result['tree'] .= $this->DirStructure('files', 'first');
+          $result['tree'] .= $this->DirStructure('file', 'first');
         }
 
         // генерируем список файлов
@@ -202,16 +202,16 @@ class TinyImageManager {
    * @return path|false
    */
   function AccessDir($requestDirectory, $typeDirectory) {
-    if ($typeDirectory == 'images') {
-      $full_request_images_dir = realpath($this->dir['images'] . $requestDirectory);
-      if (strpos($full_request_images_dir, $this->dir['images']) === 0) {
+    if ($typeDirectory == 'image') {
+      $full_request_images_dir = realpath($this->dir['image'] . $requestDirectory);
+      if (strpos($full_request_images_dir, $this->dir['image']) === 0) {
         return $full_request_images_dir;
       } else {
         return false;
       }
-    } elseif ($typeDirectory == 'files') {
-      $full_request_files_dir = realpath($this->dir['files'] . $requestDirectory);
-      if (strpos($full_request_files_dir, $this->dir['files']) === 0) {
+    } elseif ($typeDirectory == 'file') {
+      $full_request_files_dir = realpath($this->dir['file'] . $requestDirectory);
+      if (strpos($full_request_files_dir, $this->dir['file']) === 0) {
         return $full_request_files_dir;
       } else {
         return false;
@@ -232,7 +232,7 @@ class TinyImageManager {
     $struct = array();
     $handle = opendir($beginFolder);
     if ($handle) {
-      $struct[$beginFolder]['path'] = str_replace(array( $this->dir['files'], $this->dir['images'] ), '', $beginFolder);
+      $struct[$beginFolder]['path'] = str_replace(array( $this->dir['file'], $this->dir['image'] ), '', $beginFolder);
       $tmp = preg_split('[\\/]', $beginFolder);
       $tmp = array_filter($tmp);
       end($tmp);
@@ -268,7 +268,7 @@ class TinyImageManager {
    */
   function DirStructure($type, $innerDirs = 'first', $currentDir = '', $level = 0) {
     //Пока отключим файлы
-    //if($type=='files') return ;
+    //if($type=='file') return ;
 
     $currentDirArr = array();
     if (!empty($currentDir)) {
@@ -285,13 +285,13 @@ class TinyImageManager {
       }
       $ret = '';
       if ($innerDirs == false) {
-        $directory_name = $type == 'images' ? DIR_IMAGES : DIR_FILES;
+        $directory_name = $type == 'image' ? DIR_IMAGES : DIR_FILES;
 
         return 'Wrong root directory (' . $directory_name . ')<br>';
       }
       foreach ($innerDirs as $v) {
         #TODO: language dependent root folder name
-        $ret = '<div class="folder folder' . ucfirst($type) . ' ' . $firstAct . '" path="" pathtype="' . $type . '">' . ($type == 'images' ? 'Images' : 'Files') . ($v['count'] > 0 ? ' (' . $v['count'] . ')' : '') . '</div><div class="folderOpenSection" style="display:block;">';
+        $ret = '<div class="folder folder' . ucfirst($type) . ' ' . $firstAct . '" path="" pathtype="' . $type . '">' . ($type == 'image' ? 'Images' : 'file') . ($v['count'] > 0 ? ' (' . $v['count'] . ')' : '') . '</div><div class="folderOpenSection" style="display:block;">';
         if (isset($v['childs'])) {
           $ret .= $this->DirStructure($type, $v['childs'], $currentDir, $level);
         }
@@ -366,7 +366,7 @@ class TinyImageManager {
     }
 
 
-    $ret = '<div class="addrItem" path="" pathtype="' . $type . '" title=""><img src="img/' . ($type == 'images' ? 'folder_open_image' : 'folder_open_document') . '.png" width="16" height="16" alt="Корневая директория" /></div>';
+    $ret = '<div class="addrItem" path="" pathtype="' . $type . '" title=""><img src="img/' . ($type == 'image' ? 'folder_open_image' : 'folder_open_document') . '.png" width="16" height="16" alt="Корневая директория" /></div>';
     $i = 0;
     $addPath = '';
     if (is_array($path)) {
@@ -504,7 +504,7 @@ class TinyImageManager {
 
     // проверяем размер загруженного изображения (только для загруженных в папку изображений)
     // и уменьшаем его
-    if ($type == 'images' && in_array(strtolower($file_info['extension']), $this->ALLOWED_IMAGES)) {
+    if ($type == 'image' && in_array(strtolower($file_info['extension']), $this->ALLOWED_IMAGES)) {
       $maxWidth = MAX_WIDTH ? MAX_WIDTH : '100%';
       $maxHeight = MAX_HEIGHT ? MAX_HEIGHT : '100%';
       try {
@@ -532,7 +532,7 @@ class TinyImageManager {
     if (!$dir) {
       return false;
     }
-
+    
     // info about file
     $files = array();
 
@@ -591,6 +591,7 @@ class TinyImageManager {
     if (strpos($contentType, "multipart") !== false) {
       if (isset($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name'])) {
         // Open temp file
+        trigger_error("Uploading file", E_USER_NOTICE);
         $out = fopen($dir . '/' . $file, $chunk == 0 ? "wb" : "ab");
         if ($out) {
           // Read binary input stream and append it to temp file
@@ -748,7 +749,7 @@ class TinyImageManager {
       $img_params = '';
       $div_params = '';
 
-      if ($type == 'files' || in_array($v['ext'], $this->ALLOWED_FILES)) {
+      if ($type == 'file' || in_array($v['ext'], $this->ALLOWED_FILES)) {
         $img_params = '';
         //        $div_params = 'style="width: 100px; height: 100px; padding-top: 16px;"';
         $div_params = 'fileIcon';
@@ -794,7 +795,7 @@ class TinyImageManager {
     if (is_file($path . $thumbFilename)) {
       return $this->http_root . $dir . $thumbFilename;
     } else {
-      // if not an image or we are in 'files' folder
+      // if not an image or we are in 'file' folder
       if (in_array($ext, $this->ALLOWED_IMAGES) && strpos($dir, DIR_IMAGES) === 0) {
         //if it's an image, create thumb
         try {
@@ -845,7 +846,7 @@ class TinyImageManager {
     }
 
     if (is_dir($path . '/.thumbs')) {
-      if ($pathtype == 'images') {
+      if ($pathtype == 'image') {
         $handle = opendir($path . '/.thumbs');
         if ($handle) {
           while (false !== ($file = readdir($handle))) {
@@ -902,7 +903,7 @@ class TinyImageManager {
     }
 
     $result = array();
-    $folder = ($pathtype == 'images') ? DIR_IMAGES : DIR_FILES;
+    $folder = ($pathtype == 'image') ? DIR_IMAGES : DIR_FILES;
     if (realpath($realPath . '/') == realpath(DIR_ROOT . $folder . '/')) {
       $result['error'] = 'rootFolder';
     } else {
