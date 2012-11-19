@@ -119,8 +119,20 @@
 				($scale === 'up' && ($dim['width'] <= $img->getWidth() && $dim['height'] <= $img->getHeight())))
 				$dim = array('width' => $img->getWidth(), 'height' => $img->getHeight());
 			
-			if ($dim['width'] <= 0 || $dim['height'] <= 0)
-				throw new WideImage_Operation_InvalidResizeDimensionException("Both dimensions must be larger than 0.");
+			if ($dim['width'] <= 0 || $dim['height'] <= 0) {
+				// Fake it so the filemanager doesn't break
+				//throw new WideImage_Operation_InvalidResizeDimensionException("Both dimensions must be larger than 0.");
+				if ($img->isTransparent() || $img instanceof WideImage_PaletteImage) {
+					$new = WideImage_PaletteImage::create($width, $height);
+					$new->copyTransparencyFrom($img);
+				} else {
+					$new = WideImage_TrueColorImage::create($width, $height);
+					$new->alphaBlending(false);
+					$new->saveAlpha(true);
+				}
+				
+				return $new;
+			}
 			
 			if ($img->isTransparent() || $img instanceof WideImage_PaletteImage)
 			{
