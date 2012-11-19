@@ -8,8 +8,6 @@ class TinyImageManager {
   var $dir;
   var $firstAct = false;
   var $folderAct = false;
-  var $ALLOWED_IMAGES;
-  var $ALLOWED_FILES;
   var $SID;
   var $total_pages = 1;
   var $http_root;
@@ -45,8 +43,8 @@ class TinyImageManager {
       $_SESSION['tiny_image_manager_page'] = 1;
     }
 
-    $this->ALLOWED_IMAGES = array( 'jpeg', 'jpg', 'gif', 'png' );
-    $this->ALLOWED_FILES = array( '3gp', 'avi', 'bmp', 'bz', 'cpp', 'css', 'doc', 'docx', 'exe', 'flac', 'flv', 'gz',
+    $this->_config['ALLOWED_IMAGES'] = array( 'jpeg', 'jpg', 'gif', 'png' );
+    $this->_config['ALLOWED_FILES'] = array( '3gp', 'avi', 'bmp', 'bz', 'cpp', 'css', 'doc', 'docx', 'exe', 'flac', 'flv', 'gz',
                                   'htm', 'html', 'm4v', 'mkv', 'mov', 'mp3', 'mp4', 'mpg', 'ogg', 'pdf', 'ppt', 'pptx',
                                   'psd', 'ptt', 'rar', 'rb', 'rtf', 'swf', 'tar', 'tiff', 'txt', 'vob', 'wav', 'wmv',
                                   'xhtml', 'xls', 'xlsx', 'xml', 'zip'
@@ -63,8 +61,14 @@ class TinyImageManager {
     	
     	if (isset($public_folders[$folders])) {
     		$public_folders = $public_folders[$folders];
-    		if (isset($public_folders['image'])) $this->_config['DIR_IMAGES'] = $public_folders['image'];
-    		if (isset($public_folders['file'])) $this->_config['DIR_FILES'] = $public_folders['file']; 
+    		if (isset($public_folders['image'])) {
+    			if (isset($public_folders['image']['path'])) $this->_config['DIR_IMAGES'] = $public_folders['image']['path'];
+    			if (isset($public_folders['image']['allowed'])) $this->config['ALLOWED_IMAGES'] = $public_folders['image']['allowed'];
+    		}
+    		if (isset($public_folders['file'])) {
+    			if (isset($public_folders['file']['path'])) $this->_config['DIR_FILES'] = $public_folders['file']['path'];
+    			if (isset($public_folders['file']['allowed'])) $this->_config['ALLOWED_FILES'] = $public_folders['file']['allowed']; 
+    		}
     	}
     	unset($public_folders);
     	unset($folders);
@@ -87,10 +91,10 @@ class TinyImageManager {
           $return['lang'] = file_get_contents($langFile);
         }
 
-        $return['upload']['images']['allowed'] = $this->ALLOWED_IMAGES;
+        $return['upload']['images']['allowed'] = $this->_config['ALLOWED_IMAGES'];
         $return['upload']['images']['width'] = MAX_WIDTH;
         $return['upload']['images']['height'] = MAX_HEIGHT;
-        $return['upload']['files']['allowed'] = array_merge($this->ALLOWED_IMAGES, $this->ALLOWED_FILES);
+        $return['upload']['files']['allowed'] = array_merge($this->_config['ALLOWED_IMAGES'], $this->_config['ALLOWED_FILES']);
         die(json_encode($return));
         break;
 
@@ -525,10 +529,10 @@ class TinyImageManager {
     $file_info = pathinfo($fileFullPath);
     $file_info['extension'] = strtolower($file_info['extension']);
 
-    $allowed = array_merge($this->ALLOWED_IMAGES, $this->ALLOWED_FILES);
+    $allowed = array_merge($this->_config['ALLOWED_IMAGES'], $this->_config['ALLOWED_FILES']);
 
-    // This funcks up if we find an invalid file in our directory
-    // My utput got broken due to a thumbs.db file created by windows.
+    // This fucks up if we find an invalid file in our directory
+    // My output got broken due to a thumbs.db file created by windows.
     //if (!in_array(strtolower($file_info['extension']), $allowed)) {
     //  die('You cannot upload such files here!');
     //}
@@ -541,7 +545,7 @@ class TinyImageManager {
 
     // проверяем размер загруженного изображения (только для загруженных в папку изображений)
     // и уменьшаем его
-    if ($type == 'image' && in_array(strtolower($file_info['extension']), $this->ALLOWED_IMAGES)) {
+    if ($type == 'image' && in_array(strtolower($file_info['extension']), $this->_config['ALLOWED_IMAGES'])) {
       $maxWidth = MAX_WIDTH ? MAX_WIDTH : '100%';
       $maxHeight = MAX_HEIGHT ? MAX_HEIGHT : '100%';
       try {
@@ -582,7 +586,7 @@ class TinyImageManager {
       $extension = substr($fileName, $ext);
       $fileName = substr($fileName, 0, $ext);
       
-      $allowed = array_merge($this->ALLOWED_IMAGES, $this->ALLOWED_FILES);
+      $allowed = array_merge($this->_config['ALLOWED_IMAGES'], $this->_config['ALLOWED_FILES']);
 
       if (!in_array(strtolower($extension), $allowed)) {
         return false;
@@ -791,7 +795,7 @@ class TinyImageManager {
       $img_params = '';
       $div_params = '';
 
-      if ($type == 'file' || in_array($v['ext'], $this->ALLOWED_FILES)) {
+      if ($type == 'file' || in_array($v['ext'], $this->_config['ALLOWED_FILES'])) {
         $img_params = '';
         //        $div_params = 'style="width: 100px; height: 100px; padding-top: 16px;"';
         $div_params = 'fileIcon';
@@ -838,7 +842,7 @@ class TinyImageManager {
       return $this->http_root . $dir . $thumbFilename;
     } else {
       // if not an image or we are in 'file' folder
-      if (in_array($ext, $this->ALLOWED_IMAGES) && strpos($dir, $this->_config['DIR_IMAGES']) === 0) {
+      if (in_array($ext, $this->_config['ALLOWED_IMAGES']) && strpos($dir, $this->_config['DIR_IMAGES']) === 0) {
         //if it's an image, create thumb
         try {
           // if no width or height specified

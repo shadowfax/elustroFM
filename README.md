@@ -53,3 +53,32 @@ function elustroFileManager (field_name, url, type, win) {
 
 Just change `{path_to_tinyMCE}` to an absolute path to TinyMce directory on your site and you're ready to go.
 
+###As file manager for image/media/link popups with dynamic folders
+In your tinyMCE.init function add line:
+`file_browser_callback : "elustroFileManager"`
+And then add this function right after `tinyMce.init()` function:
+```javascript
+function elustroFileManager (field_name, url, type, win) {
+  var ed = tinyMCE.activeEditor,
+  cmsURL = "{path_to_tinyMCE}/plugins/elustrofm/index.html?integration=fm&lang="+ed.settings.language+"&filetype="+type+"folders={folder_alias}";
+  ed.windowManager.open({
+    file : cmsURL,
+    title : 'elustroFM',
+    width : 700,
+    height : 550,
+    resizable : "yes",
+    scrollbars : "no",
+    inline : "yes",
+    close_previous : "no",
+    popup_css : false
+  }, {
+    window : win,
+    input : field_name
+  });
+  return false;
+  }
+```
+
+Just change `{path_to_tinyMCE}` to an absolute path to TinyMce directory on your site and also change `{folder_alias}` to a convinient name.
+
+Inside the elustrofm plugin folder edit `connector/php/config.folders.php` this folder returns an array where the key is you `{folder_alias}` see the sample path connfigured in it.
