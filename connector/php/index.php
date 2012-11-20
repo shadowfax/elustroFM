@@ -92,12 +92,11 @@ class TinyImageManager {
 			// Call the action method!
 			$this->{$method_name}();
 		} else {
-			trigger_error("Invalid action '" . $actionName . "' was requested.", E_USER_ERROR);
 			$result = array('error' => 'badRequest');
 			header('Content-Type: application/json');
 			echo json_encode($return);
 		}
-  }
+	}
   
 	public function setupdataAction()
 	{
@@ -235,14 +234,10 @@ class TinyImageManager {
 		$files_path = trim($_POST['path']);
 		$tinyMCE_type = trim($_POST['pathtype']);
 		
-		trigger_error($files_path . " _for_ " . $tinyMCE_type, E_USER_NOTICE);
 		$targetDir = $this->AccessDir($files_path, $tinyMCE_type);
 		if (!$targetDir) {
-			trigger_error("Invalid target directory " . $_POST['pathtype'] . " -- " . $_POST['path'], E_USER_ERROR);
 			die('{"jsonrpc" : "2.0", "error" : {"code": 102, "message": "Failed to open output stream."}, "id" : "id"}');
 		}
-		
-		trigger_error("Will upload to " . $targetDir, E_USER_NOTICE);
 				
 		$cleanupTargetDir = true; // Remove old files
 		$maxFileAge = 5 * 3600; // Temp file age in seconds
@@ -347,7 +342,7 @@ class TinyImageManager {
 		}
 
 		$files[$fileName] = $this->getFileInfo($targetDir, $_POST['pathtype'], $fileName, $fileName);
-    	$this->addFilesInfo($_POST['path'], $_POST['pathtype'], $files);
+		$this->updateDbFile($_POST['path'], $_POST['pathtype'], false, $files);
 
 		// Return JSON-RPC response
 		die('{"jsonrpc" : "2.0", "result" : null, "id" : "id"}');
@@ -363,7 +358,7 @@ class TinyImageManager {
 			$return[$file['filename']] = $this->DelFile($_POST['type'], $_POST['path'], $file['md5'], $file['filename']);
 		}
 		
-        header('Content-Type: application/json');
+		header('Content-Type: application/json');
 		echo json_encode($return);
 	}
 	
@@ -503,7 +498,6 @@ class TinyImageManager {
 			}
 		}
 		
-		trigger_error("AccessDir Type: " . $typeDirectory . " IMAGES_DIR: " . $this->dir['image'], E_USER_ERROR);
     	return false;
 	}
 
@@ -638,61 +632,75 @@ class TinyImageManager {
     return $ret;
   }
 
-  /**
-   * Путь (хлебные крошки)
-   *
-   * @param images|files $type
-   * @param String $path
-   * @return html
-   */
-  function DirPath($type, $path = '') {
+	/**
+	 * Путь (хлебные крошки)
+	 *
+	 * @param images|files $type
+	 * @param String $path
+	 * @return html
+	 */
+	function DirPath($type, $path = '') {
 
-    if (!empty($path)) {
-      $path = preg_split('/([\/\\\])/', str_replace($this->dir[$type], '', realpath($path)));
-      $path = array_filter($path);
-    }
+		if (!empty($path)) {
+			$path = preg_split('/([\/\\\])/', str_replace($this->dir[$type], '', realpath($path)));
+			$path = array_filter($path);
+		}
 
+		$ret = '<div class="addrItem" path="" pathtype="' . $type . '" title=""><img src="img/' . ($type == 'image' ? 'folder_open_image' : 'folder_open_document') . '.png" width="16" height="16" alt="Корневая директория" /></div>';
+		$i = 0;
+		$addPath = '';
+		if (is_array($path)) {
+			foreach ($path as $v) {
+				$i++;
+				$addPath .= '/' . $v;
+				if (sizeof($path) == $i) {
+					$ret .= '<div class="addrItemEnd" path="' . $addPath . '" pathtype="' . $type . '" title=""><div>' . $v . '</div></div>';
+				} else {
+					$ret .= '<div class="addrItem" path="' . $addPath . '" pathtype="' . $type . '" title=""><div>' . $v . '</div></div>';
+				}
+			}
+		}
 
-    $ret = '<div class="addrItem" path="" pathtype="' . $type . '" title=""><img src="img/' . ($type == 'image' ? 'folder_open_image' : 'folder_open_document') . '.png" width="16" height="16" alt="Корневая директория" /></div>';
-    $i = 0;
-    $addPath = '';
-    if (is_array($path)) {
-      foreach ($path as $v) {
-        $i++;
-        $addPath .= '/' . $v;
-        if (sizeof($path) == $i) {
-          $ret .= '<div class="addrItemEnd" path="' . $addPath . '" pathtype="' . $type . '" title=""><div>' . $v . '</div></div>';
-        } else {
-          $ret .= '<div class="addrItem" path="' . $addPath . '" pathtype="' . $type . '" title=""><div>' . $v . '</div></div>';
-        }
-      }
-    }
-
-
-    return $ret;
-  }
+		return $ret;
+	}
 
 
-  function CallDir($dir, $type, $page) {
+	function CallDir($dir, $type, $page) {
 
-    $files = $this->getFileList($dir, $type);
-    if ($files) {
-      $this->total_pages = ceil(count($files) / FILES_PER_PAGE);
-      $startFile = ($page - 1) * FILES_PER_PAGE;
+		$files = $this->updateDbFile($dir, $type, true);
+		if ($files) {
+			$this->total_pages = ceil(count($files) / FILES_PER_PAGE);
+			$startFile = ($page - 1) * FILES_PER_PAGE;
 
-      return array_slice($files, $startFile, FILES_PER_PAGE);
-    } else {
-      return false;
-    }
-  }
+			return array_slice($files, $startFile, FILES_PER_PAGE);
+		} else {
+			return false;
+		}
+	}
 
-  function getFileList($dir, $type) {
-    return $this->updateDbFile($dir, $type, true);
-  }
+	/**
+	 * Not used.
+	 * 
+	 * Just an alias of updateDBFile.
+	 * 
+	 * @param string $dir
+	 * @param string $type
+	 */
+	function getFileList($dir, $type) {
+		return $this->updateDbFile($dir, $type, true);
+	}
 
-  function addFilesInfo($dir, $type, $data) {
-    return $this->updateDbFile($dir, $type, false, $data);
-  }
+	/**
+	 * Not used.
+	 * 
+	 * Just an alias of updateDBFile.
+	 * 
+	 * @param string $dir
+	 * @param string $type
+	 */
+	function addFilesInfo($dir, $type, $data) {
+		return $this->updateDbFile($dir, $type, false, $data);
+	}
 
   function updateDbFile($inputDir, $type, $return, $newData = array()) {
 
