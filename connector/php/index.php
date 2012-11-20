@@ -20,6 +20,7 @@ class TinyImageManager {
   
 	/**
 	 * Конструктор
+	 * Constructor
 	 *
 	 * @return TinyImageManager
 	 */
@@ -127,6 +128,7 @@ class TinyImageManager {
 		$type = $_POST['type'];
 		$name = $_POST['name'];
 
+		// trigger_error("NewFolder", E_USER_NOTICE);
 		$dir = $this->AccessDir($path, $type);
 		if ($dir) {
 			$fullName = $dir . '/' . $name;
@@ -166,6 +168,7 @@ class TinyImageManager {
 		}
 
 		// если зашли первый раз, показываем предыдущую папку
+		// if you went for the first time, show the previous folder
 		if (isset($_POST['default']) && isset($_SESSION['tiny_image_manager_path'], $_SESSION['tiny_image_manager_type']) && $_SESSION['tiny_image_manager_path'] !== 'undefined' && $_SESSION['tiny_image_manager_type'] !== 'undefined' && $_SESSION['tiny_image_manager_type']) {
 			$path = $_SESSION['tiny_image_manager_path'];
 			$type = $_SESSION['tiny_image_manager_type'];
@@ -185,6 +188,7 @@ class TinyImageManager {
 
 
 		// генерируем хлебные крошки
+		// trigger_error("OpenFolder " . $path . " & " . $type, E_USER_NOTICE);
 		$result['path'] = $this->DirPath($type, $this->AccessDir($path, $type));
 
 		// генерируем дерево каталогов
@@ -485,152 +489,187 @@ class TinyImageManager {
 	 * @param (images|files) $typeDirectory Тип папки, изображения или файлы
 	 * @return path|false
 	 */
-	function AccessDir($requestDirectory, $typeDirectory) {
+	protected function AccessDir($requestDirectory, $typeDirectory) {
+		$error = array("error" => 'accessDirError');
+		
 		if (strcasecmp($typeDirectory, 'image') === 0) {
 			$full_request_images_dir = realpath($this->dir['image'] . DIRECTORY_SEPARATOR . $requestDirectory);
 			if (strpos($full_request_images_dir, $this->dir['image']) === 0) {
 				return $full_request_images_dir;
+			} else {
+				// trigger_error("Directory traversal: " . $full_request_images_dir . " -- " . $this->dir['image'] . DIRECTORY_SEPARATOR . $requestDirectory, E_USER_NOTICE);
+				$error = array("error" => 'dirTraversal'); 				
 			}
 		} elseif (strcasecmp($typeDirectory, 'file') === 0) {
 			$full_request_files_dir = realpath($this->dir['file'] . DIRECTORY_SEPARATOR . $requestDirectory);
 			if (strpos($full_request_files_dir, $this->dir['file']) === 0) {
 				return $full_request_files_dir;
+			} else {
+				$error = array("error" => 'dirTraversal');
 			}
 		}
 		
-    	return false;
+    	//return false;
+    	header('Content-Type: application/json');
+		echo json_encode($error);
+		exit(1);
 	}
 
 
-  /**
-   * Дерево каталогов
-   * функция рекурсивная
-   *
-   * @return array
-   */
-  function Tree($beginFolder) {
-  	if (!is_dir($beginFolder)) return false;
+	/**
+  	 * Дерево каталогов
+	 * функция рекурсивная
+	 * 
+	 * The directory tree
+	 * Recursive function
+	 *
+	 * @return array
+	 */
+	function Tree($beginFolder) {
+		//if (!is_dir($beginFolder)) return false;
   	
-    $struct = array();
-    
-    $struct[$beginFolder]['path'] = str_replace(array( $this->dir['file'], $this->dir['image'] ), '', $beginFolder);
-	$tmp = preg_split('[\\/]', $beginFolder);
-	$tmp = array_filter($tmp);
-	end($tmp);
-	$struct[$beginFolder]['name'] = current($tmp);
-	$struct[$beginFolder]['count'] = 0;
-
-	if (!is_readable($beginFolder)) return $struct;
-	
-	$dir = new DirectoryIterator($beginFolder);
-	foreach ($dir as $file) {
-		if ((!$file->isDot()) && (substr($file->getFilename(),0, 1) !== ".")) {
-			if ($file->isDir()) {
-				$struct[$beginFolder]['childs'][] = $this->Tree($beginFolder . '/' . $file->getFilename());
-			} else {
-				$struct[$beginFolder]['count']++;
+		$struct = array();
+    	
+		// Remove the initial path
+		$path = $beginFolder;
+		if (strlen($beginFolder) >= strlen($this->dir['file'])) {
+			if (strcmp(substr($beginFolder, 0, strlen($this->dir['file'])), $this->dir['file']) === 0) {
+				$path = substr($beginFolder, strlen($this->dir['file']));				
 			}
-		}	
-	}
+		}
+		
+		if (strcmp($path, $beginFolder) === 0) {
+			if (strlen($beginFolder) >= strlen($this->dir['image'])) {
+				if (strcmp(substr($beginFolder, 0, strlen($this->dir['image'])), $this->dir['image']) === 0) {
+					$path = substr($beginFolder, strlen($this->dir['image']));				
+				}
+			}	
+		}
+		
+		// trigger_error("Forged path: " . $path, E_USER_WARNING);
+		
+		
+		$struct[$beginFolder]['path'] = $path;
+		$tmp = preg_split('[\\/]', $beginFolder);
+		$tmp = array_filter($tmp);
+		end($tmp);
+		$struct[$beginFolder]['name'] = current($tmp);
+		$struct[$beginFolder]['count'] = 0;
+
+		if (!is_readable($beginFolder)) return $struct;
+	
+		$dir = new DirectoryIterator($beginFolder);
+		foreach ($dir as $file) {
+			if ((!$file->isDot()) && (substr($file->getFilename(),0, 1) !== ".")) {
+				if ($file->isDir()) {
+					$struct[$beginFolder]['childs'][] = $this->Tree($beginFolder . '/' . $file->getFilename());
+				} else {
+					$struct[$beginFolder]['count']++;
+				}
+			}	
+		}
     
-	asort($struct);
-	return $struct;
-  }
+		asort($struct);
+		return $struct;
+	}
 
-  /**
-   * Визуализация дерева каталогов
-   * функция рекурсивная
-   *
-   * @param images|files $type
-   * @param first|String $innerDirs
-   * @param String $currentDir
-   * @param int $level
-   * @return html
-   */
-  function DirStructure($type, $innerDirs = 'first', $currentDir = '', $level = 0) {
-    //Пока отключим файлы
-    //if($type=='file') return ;
+	/**
+	 * Визуализация дерева каталогов
+	 * функция рекурсивная
+	 * 
+	 * Visualization of the directory tree
+	 * Recursive function
+	 *
+	 * @param images|files $type
+	 * @param first|String $innerDirs
+	 * @param String $currentDir
+	 * @param int $level
+	 * @return html
+	 */
+	function DirStructure($type, $innerDirs = 'first', $currentDir = '', $level = 0) {
+		//Пока отключим файлы
+		//if($type=='file') return ;
 
-    $currentDirArr = array();
-    if (!empty($currentDir)) {
-      $currentDirArr = preg_split('/([\/\\\])/', str_replace($this->dir[$type], '', realpath($currentDir)));
-      $currentDirArr = array_filter($currentDirArr);
-    }
+		$currentDirArr = array();
+		if (!empty($currentDir)) {
+			$currentDirArr = preg_split('/([\/\\\])/', str_replace($this->dir[$type], '', realpath($currentDir)));
+			$currentDirArr = array_filter($currentDirArr);
+		}
 
-    if ($innerDirs == 'first') {
-      $innerDirs = $this->Tree($this->dir[$type]);
-      $firstAct = '';
-      if (realpath($currentDir) == $this->dir[$type] && $this->firstAct) {
-        $firstAct = 'folderAct';
-        $this->firstAct = false;
-      }
-      $ret = '';
-      if ($innerDirs == false) {
-        $directory_name = $type == 'image' ? $this->config['DIR_IMAGES'] : $this->_config['DIR_FILES'];
+		if ($innerDirs == 'first') {
+			$innerDirs = $this->Tree($this->dir[$type]);
+			$firstAct = '';
+			if (realpath($currentDir) == $this->dir[$type] && $this->firstAct) {
+				$firstAct = 'folderAct';
+				$this->firstAct = false;
+			}
+			$ret = '';
+			if ($innerDirs == false) {
+				$directory_name = $type == 'image' ? $this->config['DIR_IMAGES'] : $this->_config['DIR_FILES'];
 
-        return 'Wrong root directory (' . $directory_name . ')<br>';
-      }
-      foreach ($innerDirs as $v) {
-        #TODO: language dependent root folder name
-        $ret = '<div class="folder folder' . ucfirst($type) . ' ' . $firstAct . '" path="" pathtype="' . $type . '">' . ($type == 'image' ? 'Images' : 'Files') . ($v['count'] > 0 ? ' (' . $v['count'] . ')' : '') . '</div><div class="folderOpenSection" style="display:block;">';
-        if (isset($v['childs'])) {
-          $ret .= $this->DirStructure($type, $v['childs'], $currentDir, $level);
-        }
-        break;
-      }
-      $ret .= '</div>';
+				return 'Wrong root directory (' . $directory_name . ')<br>';
+			}
+			foreach ($innerDirs as $v) {
+				#TODO: language dependent root folder name
+				$ret = '<div class="folder folder' . ucfirst($type) . ' ' . $firstAct . '" path="" pathtype="' . $type . '">' . ($type == 'image' ? 'Images' : 'Files') . ($v['count'] > 0 ? ' (' . $v['count'] . ')' : '') . '</div><div class="folderOpenSection" style="display:block;">';
+				if (isset($v['childs'])) {
+					$ret .= $this->DirStructure($type, $v['childs'], $currentDir, $level);
+				}
+				break;
+			}
+			$ret .= '</div>';
 
-      return $ret;
-    }
+			return $ret;
+		}
 
-    if (sizeof($innerDirs) == 0) {
-      return false;
-    }
-    $ret = '';
-    foreach ($innerDirs as $v) {
-      foreach ($v as $v) {
-      }
-      if (isset($v['count'])) {
-        $files = 'Файлов: ' . $v['count'];
-        $count_childs = isset($v['childs']) ? sizeof($v['childs']) : 0;
-        if ($count_childs != 0) {
-          $files .= ', папок: ' . $count_childs;
-        }
-      } else {
-        $files = '';
-      }
-      if (isset($v['childs'])) {
-        $folderOpen = '';
-        $folderAct = '';
-        $folderClass = 'folderS';
-        if (isset($currentDirArr[$level + 1])) {
-          if ($currentDirArr[$level + 1] == $v['name']) {
-            $folderOpen = 'style="display:block;"';
-            $folderClass = 'folderOpened';
-            if ($currentDirArr[sizeof($currentDirArr)] == $v['name'] && !$this->folderAct) {
-              $folderAct = 'folderAct';
-              $this->folderAct = true;
-            } else {
-              $folderAct = '';
-            }
-          }
-        }
-        $folderClass .= ' folder';
-        $ret .= '<div class="' . $folderClass . ' ' . $folderAct . '" path="' . $v['path'] . '" title="' . $files . '" pathtype="' . $type . '">' . $v['name'] . ($v['count'] > 0 ? ' (' . $v['count'] . ')' : '') . '</div><div class="folderOpenSection" ' . $folderOpen . '>';
-        $ret .= $this->DirStructure($type, $v['childs'], $currentDir, $level + 1);
-        $ret .= '</div>';
-      } else {
-        $folderAct = '';
-        $soc = count($currentDirArr);
-        if ($soc > 0 && $currentDirArr[$soc] == $v['name']) {
-          $folderAct = 'folderAct';
-        }
-        $ret .= '<div class="folder folderClosed ' . $folderAct . '" path="' . $v['path'] . '" title="' . $files . '" pathtype="' . $type . '">' . $v['name'] . ($v['count'] > 0 ? ' (' . $v['count'] . ')' : '') . '</div>';
-      }
-    }
+		if (sizeof($innerDirs) == 0) {
+			return false;
+		}
+		$ret = '';
+		foreach ($innerDirs as $v) {
+			foreach ($v as $v) {
+			}
+			if (isset($v['count'])) {
+				$files = 'Файлов: ' . $v['count'];
+				$count_childs = isset($v['childs']) ? sizeof($v['childs']) : 0;
+				if ($count_childs != 0) {
+					$files .= ', папок: ' . $count_childs;
+				}
+			} else {
+				$files = '';
+			}
+			if (isset($v['childs'])) {
+				$folderOpen = '';
+				$folderAct = '';
+				$folderClass = 'folderS';
+				if (isset($currentDirArr[$level + 1])) {
+					if ($currentDirArr[$level + 1] == $v['name']) {
+						$folderOpen = 'style="display:block;"';
+						$folderClass = 'folderOpened';
+						if ($currentDirArr[sizeof($currentDirArr)] == $v['name'] && !$this->folderAct) {
+							$folderAct = 'folderAct';
+							$this->folderAct = true;
+						} else {
+							$folderAct = '';
+						}
+					}
+				}
+				$folderClass .= ' folder';
+				$ret .= '<div class="' . $folderClass . ' ' . $folderAct . '" path="' . $v['path'] . '" title="' . $files . '" pathtype="' . $type . '">' . $v['name'] . ($v['count'] > 0 ? ' (' . $v['count'] . ')' : '') . '</div><div class="folderOpenSection" ' . $folderOpen . '>';
+				$ret .= $this->DirStructure($type, $v['childs'], $currentDir, $level + 1);
+				$ret .= '</div>';
+			} else {
+				$folderAct = '';
+				$soc = count($currentDirArr);
+				if ($soc > 0 && $currentDirArr[$soc] == $v['name']) {
+					$folderAct = 'folderAct';
+				}
+				$ret .= '<div class="folder folderClosed ' . $folderAct . '" path="' . $v['path'] . '" title="' . $files . '" pathtype="' . $type . '">' . $v['name'] . ($v['count'] > 0 ? ' (' . $v['count'] . ')' : '') . '</div>';
+			}
+		}
 
-    return $ret;
-  }
+		return $ret;
+	}
 
 	/**
 	 * Путь (хлебные крошки)
@@ -702,150 +741,142 @@ class TinyImageManager {
 		return $this->updateDbFile($dir, $type, false, $data);
 	}
 
-  function updateDbFile($inputDir, $type, $return, $newData = array()) {
+	function updateDbFile($inputDir, $type, $return, $newData = array()) {
+		// trigger_error("UpdateDBFile", E_USER_NOTICE);
+		$dir = $this->AccessDir($inputDir, $type);
+		if (!$dir) {
+			return false;
+		}
 
-    $dir = $this->AccessDir($inputDir, $type);
+		if (!ini_get('safe_mode')) {
+			set_time_limit(120);
+		}
 
-    if (!$dir) {
-      return false;
-    }
+		if (!is_dir($dir . '/.thumbs')) {
+			mkdir($dir . '/.thumbs');
+		}
 
-    if (!ini_get('safe_mode')) {
-      set_time_limit(120);
-    }
-
-    if (!is_dir($dir . '/.thumbs')) {
-      mkdir($dir . '/.thumbs');
-    }
-
-    $dbfile = $dir . '/.thumbs/.db';
+		$dbfile = $dir . '/.thumbs/.db';
 
 
-    if (is_file($dbfile)) {
-      $dbfilehandle = fopen($dbfile, "r");
-      $dblength = filesize($dbfile);
-      if ($dblength > 0) {
-        $dbdata = fread($dbfilehandle, $dblength);
-      }
-      fclose($dbfilehandle);
-    }
-    if (!empty($dbdata)) {
-      $files = unserialize($dbdata);
-
-      // test if files were deleted
-      foreach ($files as $file) {
-        if (!is_file($dir . '/' . $file['filename'])) {
-          // delete file from .db
-          $this->DelFile($type, $inputDir, $file['md5'], $file['filename']);
-          // and don't show it now
-          unset($files[$file['filename']]);
-        }
-      }
-    } else {
-      $files = array();
-    }
-
-    $newFiles = 0;
-    
-	$dirIterator = new DirectoryIterator($dir);
-	foreach ($dirIterator as $file) {
-		if ($file->isFile() && (substr($file->getFilename(),0, 1) !== ".") && !isset($files[$file->getFilename()])) {
-			if (!empty($newData[$file->getFilename()])) {
-				$files[$file->getFilename()] = $newData[$file->getFilename()];
-			} else {
-				$files[$file->getFilename()] = $this->getFileInfo($dir, $type, $file->getFilename());
+		if (is_file($dbfile)) {
+			$dbfilehandle = fopen($dbfile, "r");
+			$dblength = filesize($dbfile);
+			if ($dblength > 0) {
+				$dbdata = fread($dbfilehandle, $dblength);
 			}
-			$newFiles++;
-		}	
-	}
+			fclose($dbfilehandle);
+		}
+		if (!empty($dbdata)) {
+			$files = unserialize($dbdata);
+
+			// test if files were deleted
+			foreach ($files as $file) {
+				if (!is_file($dir . '/' . $file['filename'])) {
+					// delete file from .db
+					$this->DelFile($type, $inputDir, $file['md5'], $file['filename']);
+					// and don't show it now
+					unset($files[$file['filename']]);
+				}
+			}
+		} else {
+			$files = array();
+		}
+
+		$newFiles = 0;
+    
+		$dirIterator = new DirectoryIterator($dir);
+		foreach ($dirIterator as $file) {
+			if ($file->isFile() && (substr($file->getFilename(),0, 1) !== ".") && !isset($files[$file->getFilename()])) {
+				if (!empty($newData[$file->getFilename()])) {
+					$files[$file->getFilename()] = $newData[$file->getFilename()];
+				} else {
+					$files[$file->getFilename()] = $this->getFileInfo($dir, $type, $file->getFilename());
+				}
+				$newFiles++;
+			}	
+		}
 		
-    // if there are new files in directory, re-sort and resave .db file
-    if ($newFiles > 0) {
-      $this->sortFiles($files);
-      // save the file
-      $dbfilehandle = fopen($dbfile, "w");
-      fwrite($dbfilehandle, serialize($files));
-      fclose($dbfilehandle);
-    }
+		// if there are new files in directory, re-sort and resave .db file
+		if ($newFiles > 0) {
+			//$this->sortFiles($files);
+			uasort($files, array($this, 'cmp_date_name'));
+			// save the file
+			$dbfilehandle = fopen($dbfile, "w");
+			fwrite($dbfilehandle, serialize($files));
+			fclose($dbfilehandle);
+		}
 
-    if ($return) {
-      return $files;
-    } else {
-      return true;
-    }
-  }
+		if ($return) {
+			return $files;
+		} else {
+			return true;
+		}
+	}
 
-  function getFileInfo($dir, $type, $file, $realname = '') {
-    $fileFullPath = $dir . '/' . $file;
-    $file_info = pathinfo($fileFullPath);
-    $file_info['extension'] = strtolower($file_info['extension']);
+	function getFileInfo($dir, $type, $file, $realname = '') {
+		$fileFullPath = $dir . '/' . $file;
+		$file_info = pathinfo($fileFullPath);
+		$file_info['extension'] = strtolower($file_info['extension']);
 
-    $allowed = array_merge($this->_config['ALLOWED_IMAGES'], $this->_config['ALLOWED_FILES']);
-
-    // This fucks up if we find an invalid file in our directory
-    // My output got broken due to a thumbs.db file created by windows.
-    //if (!in_array(strtolower($file_info['extension']), $allowed)) {
-    //  die('You cannot upload such files here!');
-    //}
-
-    $link = str_replace(array( '/\\', '//', '\\\\', '\\'
+		$link = str_replace(array( '/\\', '//', '\\\\', '\\'
                         ), DS, DS . str_replace(realpath(DIR_ROOT), '', realpath($fileFullPath)));
-    $path = pathinfo($link);
-    $link = $this->http_root . $link;
+		$path = pathinfo($link);
+		$link = $this->http_root . $link;
 
 
-    // проверяем размер загруженного изображения (только для загруженных в папку изображений)
-    // и уменьшаем его
-    if ($type == 'image' && in_array(strtolower($file_info['extension']), $this->_config['ALLOWED_IMAGES'])) {
-      $maxWidth = MAX_WIDTH ? MAX_WIDTH : '100%';
-      $maxHeight = MAX_HEIGHT ? MAX_HEIGHT : '100%';
-      try {
-        WideImage::load($fileFullPath)->resizeDown($maxWidth, $maxHeight)->saveToFile($fileFullPath);
-        $fileImageInfo = getimagesize($fileFullPath);
-      } catch (WideImage_InvalidImageSourceException $e) {
-        $e->getMessage();
-      }
-    }
-    $files[$file] = array( 'filename' => $file,
-                           'name' => $realname ? $realname : basename(mb_strtolower($file_info['basename']), '.' . $file_info['extension']),
-                           'ext' => $file_info['extension'], 'path' => $path['dirname'], 'link' => $link,
-                           'size' => filesize($fileFullPath), 'date' => filemtime($fileFullPath),
-                           'width' => !empty($fileImageInfo[0]) ? $fileImageInfo[0] : 'N/A',
-                           'height' => !empty($fileImageInfo[1]) ? $fileImageInfo[1] : 'N/A',
-                           'md5' => md5_file($fileFullPath)
-    );
+		// проверяем размер загруженного изображения (только для загруженных в папку изображений)
+		// и уменьшаем его
+		if ($type == 'image' && in_array(strtolower($file_info['extension']), $this->_config['ALLOWED_IMAGES'])) {
+			$maxWidth = MAX_WIDTH ? MAX_WIDTH : '100%';
+			$maxHeight = MAX_HEIGHT ? MAX_HEIGHT : '100%';
+			try {
+				WideImage::load($fileFullPath)->resizeDown($maxWidth, $maxHeight)->saveToFile($fileFullPath);
+				$fileImageInfo = getimagesize($fileFullPath);
+			} catch (WideImage_InvalidImageSourceException $e) {
+				$e->getMessage();
+			}
+		}
+		$files[$file] = array( 'filename' => $file,
+		                       'name' => $realname ? $realname : basename(mb_strtolower($file_info['basename']), '.' . $file_info['extension']),
+		                       'ext' => $file_info['extension'], 'path' => $path['dirname'], 'link' => $link,
+		                       'size' => filesize($fileFullPath), 'date' => filemtime($fileFullPath),
+		                       'width' => !empty($fileImageInfo[0]) ? $fileImageInfo[0] : 'N/A',
+		                       'height' => !empty($fileImageInfo[1]) ? $fileImageInfo[1] : 'N/A',
+		                       'md5' => md5_file($fileFullPath)
+		);
 
-    return $files[$file];
-  }
+		return $files[$file];
+	}
 
+	/**
+	 * Used to sort files by date
+	 * 
+	 * @param unknown_type $a
+	 * @param unknown_type $b
+	 */
+	private function cmp_date_name($a, $b)
+	{
+		$r1 = strcmp($a['date'], $b['date']) * (-1);
 
-  function sortFiles(&$files) {
-    // function for sorting files by date/filename
-    function cmp_date_name($a, $b) {
-      $r1 = strcmp($a['date'], $b['date']) * (-1);
+		return ($r1 == 0) ? strcmp($a['filename'], $b['filename']) : $r1;
+	}
 
-      return ($r1 == 0) ? strcmp($a['filename'], $b['filename']) : $r1;
-    }
+	function bytes_to_str($bytes) {
+		$d = '';
+		if ($bytes >= 1048576) {
+			$num = $bytes / 1048576;
+			$d = 'Mb';
+		} elseif ($bytes >= 1024) {
+			$num = $bytes / 1024;
+			$d = 'kb';
+		} else {
+			$num = $bytes;
+			$d = 'b';
+		}
 
-    // sort array
-    uasort($files, 'cmp_date_name');
-  }
-
-  function bytes_to_str($bytes) {
-    $d = '';
-    if ($bytes >= 1048576) {
-      $num = $bytes / 1048576;
-      $d = 'Mb';
-    } elseif ($bytes >= 1024) {
-      $num = $bytes / 1024;
-      $d = 'kb';
-    } else {
-      $num = $bytes;
-      $d = 'b';
-    }
-
-    return number_format($num, 2, ',', ' ') . $d;
-  }
+		return number_format($num, 2, ',', ' ') . $d;
+	}
 
 
   function ShowDir($inputDir, $type, $page) {
@@ -966,6 +997,7 @@ class TinyImageManager {
 	
 
 	function DelFile($pathtype, $path, $md5, $filename) {
+		// trigger_error("DelFile", E_USER_NOTICE);
 		$path = $this->AccessDir($path, $pathtype);
 		if (!$path) {
 			return false;
