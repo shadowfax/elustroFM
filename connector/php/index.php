@@ -1,248 +1,511 @@
 <?php
+/**
+ * Heavily modified by Juan Pedro González Gutierrez
+ * Original author Anton Syuvaev (http://h8every1.ru/)
+ */
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 include 'config.php';
 
 class TinyImageManager {
 
-  var $dir;
-  var $firstAct = false;
-  var $folderAct = false;
-  var $SID;
-  var $total_pages = 1;
-  var $http_root;
+	var $dir;
+	var $firstAct = false;
+	var $folderAct = false;
+	var $SID;
+	var $total_pages = 1;
+	var $http_root;
 
-  protected $_config;
+	protected $_config;
   
-  /**
-   * Конструктор
-   *
-   * @return TinyImageManager
-   */
-  function TinyImageManager() {
+	/**
+	 * Конструктор
+	 *
+	 * @return TinyImageManager
+	 */
+	function TinyImageManager() {
 
-    ob_start("ob_gzhandler");
-    header('Content-Type: text/html; charset=utf-8');
+		ob_start("ob_gzhandler");
+		// This shouldn't be here as we could output JSON
+		// header('Content-Type: text/html; charset=utf-8');
 
-    if (isset($_POST['SID'])) {
-      session_id($_POST['SID']);
-    }
-    if (!isset($_SESSION)) {
-      session_start();
-    }
-    $this->SID = session_id();
-    require 'yoursessioncheck.php';
+		if (isset($_POST['SID'])) {
+			session_id($_POST['SID']);
+		}
+		if (!isset($_SESSION)) {
+			session_start();
+		}
+		$this->SID = session_id();
+		require 'yoursessioncheck.php';
 
-    if (!isset($_SESSION['tiny_image_manager_path'])) {
-      $_SESSION['tiny_image_manager_path'] = '';
-    }
-    if (!isset($_SESSION['tiny_image_manager_type'])) {
-      $_SESSION['tiny_image_manager_type'] = '';
-    }
-    if (!isset($_SESSION['tiny_image_manager_page'])) {
-      $_SESSION['tiny_image_manager_page'] = 1;
-    }
+		if (!isset($_SESSION['tiny_image_manager_path'])) {
+			$_SESSION['tiny_image_manager_path'] = '';
+		}
+		if (!isset($_SESSION['tiny_image_manager_type'])) {
+			$_SESSION['tiny_image_manager_type'] = '';
+		}
+		if (!isset($_SESSION['tiny_image_manager_page'])) {
+			$_SESSION['tiny_image_manager_page'] = 1;
+		}
 
-    $this->_config['ALLOWED_IMAGES'] = array( 'jpeg', 'jpg', 'gif', 'png' );
-    $this->_config['ALLOWED_FILES'] = array( '3gp', 'avi', 'bmp', 'bz', 'cpp', 'css', 'doc', 'docx', 'exe', 'flac', 'flv', 'gz',
-                                  'htm', 'html', 'm4v', 'mkv', 'mov', 'mp3', 'mp4', 'mpg', 'ogg', 'pdf', 'ppt', 'pptx',
-                                  'psd', 'ptt', 'rar', 'rb', 'rtf', 'swf', 'tar', 'tiff', 'txt', 'vob', 'wav', 'wmv',
-                                  'xhtml', 'xls', 'xlsx', 'xml', 'zip'
-    );
+		$this->_config['ALLOWED_IMAGES'] = array( 'jpeg', 'jpg', 'gif', 'png' );
+		$this->_config['ALLOWED_FILES'] = array( '3gp', 'avi', 'bmp', 'bz', 'cpp', 'css', 'doc', 'docx', 'exe', 'flac', 'flv', 'gz',
+		                                         'htm', 'html', 'm4v', 'mkv', 'mov', 'mp3', 'mp4', 'mpg', 'ogg', 'pdf', 'ppt', 'pptx',
+		                                         'psd', 'ptt', 'rar', 'rb', 'rtf', 'swf', 'tar', 'tiff', 'txt', 'vob', 'wav', 'wmv',
+		                                         'xhtml', 'xls', 'xlsx', 'xml', 'zip'
+		);
 
-    $this->_config['DIR_IMAGES'] = DIR_IMAGES;
-    $this->_config['DIR_FILES'] = DIR_FILES;
+		$this->_config['DIR_IMAGES'] = DIR_IMAGES;
+		$this->_config['DIR_FILES'] = DIR_FILES;
     
-	// Get the user defined folder
-    $folders = !empty($_POST['folders']) && $_POST['folders'] !== 'undefined' ? $_POST['folders'] : null;
-    if ($folders !== null) {
-    	// Load the folder configuration array
-    	$public_folders = (include('config.folders.php'));
+		// Get the user defined folder
+		$folders = !empty($_POST['folders']) && $_POST['folders'] !== 'undefined' ? $_POST['folders'] : null;
+		if ($folders !== null) {
+			// Load the folder configuration array
+			$public_folders = (include('config.folders.php'));
     	
-    	if (isset($public_folders[$folders])) {
-    		$public_folders = $public_folders[$folders];
-    		if (isset($public_folders['image'])) {
-    			if (isset($public_folders['image']['path'])) $this->_config['DIR_IMAGES'] = $public_folders['image']['path'];
-    			if (isset($public_folders['image']['allowed'])) $this->config['ALLOWED_IMAGES'] = $public_folders['image']['allowed'];
-    		}
-    		if (isset($public_folders['file'])) {
-    			if (isset($public_folders['file']['path'])) $this->_config['DIR_FILES'] = $public_folders['file']['path'];
-    			if (isset($public_folders['file']['allowed'])) $this->_config['ALLOWED_FILES'] = $public_folders['file']['allowed']; 
-    		}
-    	}
-    	unset($public_folders);
-    	unset($folders);
-    }
+			if (isset($public_folders[$folders])) {
+				$public_folders = $public_folders[$folders];
+				if (isset($public_folders['image'])) {
+					if (isset($public_folders['image']['path'])) $this->_config['DIR_IMAGES'] = $public_folders['image']['path'];
+					if (isset($public_folders['image']['allowed'])) $this->config['ALLOWED_IMAGES'] = $public_folders['image']['allowed'];
+				}
+				if (isset($public_folders['file'])) {
+					if (isset($public_folders['file']['path'])) $this->_config['DIR_FILES'] = $public_folders['file']['path'];
+					if (isset($public_folders['file']['allowed'])) $this->_config['ALLOWED_FILES'] = $public_folders['file']['allowed']; 
+				}
+			}
+			unset($public_folders);
+			unset($folders);
+		}
     
-    $this->dir = array( 'image' => realpath(DIR_ROOT . $this->_config['DIR_IMAGES']), 'file' => realpath(DIR_ROOT . $this->_config['DIR_FILES']));
+		$this->dir = array( 'image' => realpath(DIR_ROOT . $this->_config['DIR_IMAGES']), 'file' => realpath(DIR_ROOT . $this->_config['DIR_FILES']));
 
-    $this->http_root = rtrim(HTTP_ROOT, '/');
+		$this->http_root = rtrim(HTTP_ROOT, '/');
 
-    include WIDE_IMAGE_LIB;
+		include WIDE_IMAGE_LIB;
 
-    switch ($_POST['action']) {
-
-      case 'setupData':
-        $lang = !empty($_POST['lang']) && $_POST['lang'] !== 'undefined' ? $_POST['lang'] : LANG;
-
-        $return['lang'] = '{}';
-        $langFile = '../../langs/' . mb_strtolower($lang) . '_data.js';
-        if (file_exists($langFile)) {
-          $return['lang'] = file_get_contents($langFile);
-        }
-
-        $return['upload']['images']['allowed'] = $this->_config['ALLOWED_IMAGES'];
-        $return['upload']['images']['width'] = MAX_WIDTH;
-        $return['upload']['images']['height'] = MAX_HEIGHT;
-        $return['upload']['files']['allowed'] = array_merge($this->_config['ALLOWED_IMAGES'], $this->_config['ALLOWED_FILES']);
-        die(json_encode($return));
-        break;
-
-      //Создать папку
-      case 'newfolder':
-
-        $result = array();
-        $path = $_POST['path'];
-        $type = $_POST['type'];
-        $name = $_POST['name'];
-
-        $dir = $this->AccessDir($path, $type);
-        if ($dir) {
-          $fullName = $dir . '/' . $name;
-          if (preg_match('/[a-z0-9-_]+/sim', $_POST['name'])) {
-            if (is_dir($fullName)) {
-              $result['error'] = 'folderExists';
-            } else {
-              if (!mkdir($fullName)) {
-                $result['error'] = 'createFolderError';
-              }
-            }
-          } else {
-            $result['error'] = 'wrongFolderName';
-          }
-        } else {
-          $result['error'] = 'folderAccessDenied';
-        }
-
-        die(json_encode($result));
-        break;
-
-      // Загрузка папки
-      case 'openFolder':
-        // здесь будем хранить результат
-        $result = array();
-
-        // чистим исходные данные
-        if (!isset($_POST['path']) || $_POST['path'] == '/') {
-          $_POST['path'] = '';
-        }
-        if (!isset($_POST['type'])) {
-          $_POST['type'] = '';
-        }
-
-        // если зашли первый раз, показываем предыдущую папку
-        if (isset($_POST['default']) && isset($_SESSION['tiny_image_manager_path'], $_SESSION['tiny_image_manager_type']) && $_SESSION['tiny_image_manager_path'] !== 'undefined' && $_SESSION['tiny_image_manager_type'] !== 'undefined' && $_SESSION['tiny_image_manager_type']) {
-          $path = $_SESSION['tiny_image_manager_path'];
-          $type = $_SESSION['tiny_image_manager_type'];
-        } else {
-          $path = $_SESSION['tiny_image_manager_path'] = $_POST['path'];
-          // если тип не задан, показываем изображения
-          $type = $_POST['type'] ? $_POST['type'] : 'image';
-          $_SESSION['tiny_image_manager_type'] = $type;
-        }
-
-        if (isset($_POST['default']) && $_SESSION['tiny_image_manager_page'] != 1 && $_SESSION['tiny_image_manager_page'] != 'undefined') {
-          $page = $_SESSION['tiny_image_manager_page'];
-        } else {
-          $page = !empty($_POST['page']) ? (int)$_POST['page'] : 1;
-          $_SESSION['tiny_image_manager_page'] = $page;
-        }
-
-
-        // генерируем хлебные крошки
-        $result['path'] = $this->DirPath($type, $this->AccessDir($path, $type));
-
-        // генерируем дерево каталогов
-        $result['tree'] = '';
-        // если мы показываем файлы, а не картинки, то картинки надо пропускать
-        if ($type == 'file') {
-          $this->firstAct = false;
-          $result['tree'] .= $this->DirStructure('image', 'first');
-          $this->firstAct = $path ? false : true;
-          $result['tree'] .= $this->DirStructure('file', 'first', $this->AccessDir($path, 'file'));
-        } else {
-          // иначе показываем каталог в разделе изображения
-          $this->firstAct = $path ? false : true;
-          $result['tree'] .= $this->DirStructure('image', 'first', $this->AccessDir($path, 'image'));
-          $this->firstAct = false;
-          $result['tree'] .= $this->DirStructure('file', 'first');
-        }
-
-        // генерируем список файлов
-        $result['files'] = $this->ShowDir($path, $type, $page);
-        $result['pages'] = $this->ShowPages($path, $type, $page);
-        $result['totalPages'] = $this->total_pages;
-
-        die(json_encode($result));
-        break;
-
-      //Загрузить изображение
-      case 'uploadfile':
-        echo $this->UploadFile($_POST['path'], $_POST['pathtype']);
-        exit();
-        break;
-
-      //Удалить файл, или несколько файлов
-      case 'delfile':
-        $return = array();
-        foreach ($_POST['files'] as $file) {
-          $return[$file['filename']] = $this->DelFile($_POST['type'], $_POST['path'], $file['md5'], $file['filename']);
-        }
-        die(json_encode($return));
-        break;
-
-      case 'delfolder':
-        die(json_encode($this->DelFolder($_POST['type'], $_POST['path'])));
-        break;
-
-      case 'renamefile':
-        echo $this->RenameFile($_POST['pathtype'], $_POST['path'], $_POST['filename'], $_POST['newname']);
-        exit();
-        break;
-
-      default:
-        ;
-        break;
-    }
-
+		$actionName = strtolower(trim($_POST['action']));
+		$method_name = $actionName . 'Action';
+		
+		if (method_exists($this, $method_name)) {
+			// Call the action method!
+			$this->{$method_name}();
+		} else {
+			trigger_error("Invalid action '" . $actionName . "' was requested.", E_USER_ERROR);
+			$result = array('error' => 'badRequest');
+			header('Content-Type: application/json');
+			echo json_encode($return);
+		}
   }
+  
+	public function setupdataAction()
+	{
+		$lang = !empty($_POST['lang']) && $_POST['lang'] !== 'undefined' ? $_POST['lang'] : LANG;
 
-  /**
-   * Проверка на разрешение записи в папку (не системное)
-   *
-   * @param string $requestDirectory Запрашиваемая папка (относительно DIR_IMAGES или DIR_FILES)
-   * @param (images|files) $typeDirectory Тип папки, изображения или файлы
-   * @return path|false
-   */
-  function AccessDir($requestDirectory, $typeDirectory) {
-    if ($typeDirectory == 'image') {
-      $full_request_images_dir = realpath($this->dir['image'] . $requestDirectory);
-      if (strpos($full_request_images_dir, $this->dir['image']) === 0) {
-        return $full_request_images_dir;
-      } else {
-        return false;
-      }
-    } elseif ($typeDirectory == 'file') {
-      $full_request_files_dir = realpath($this->dir['file'] . $requestDirectory);
-      if (strpos($full_request_files_dir, $this->dir['file']) === 0) {
-        return $full_request_files_dir;
-      } else {
-        return false;
-      }
-    } else {
-      return false;
-    }
-  }
+		$return['lang'] = '{}';
+		$langFile = '../../langs/' . mb_strtolower($lang) . '_data.js';
+		if (file_exists($langFile)) {
+			$return['lang'] = file_get_contents($langFile);
+		}
+
+		$return['upload']['images']['allowed'] = $this->_config['ALLOWED_IMAGES'];
+		$return['upload']['images']['width'] = MAX_WIDTH;
+		$return['upload']['images']['height'] = MAX_HEIGHT;
+		$return['upload']['files']['allowed'] = array_merge($this->_config['ALLOWED_IMAGES'], $this->_config['ALLOWED_FILES']);
+		
+		header('Content-Type: application/json');
+		echo json_encode($return);
+	}
+	
+	/**
+	 * Создать папку
+	 */
+	public function newfolderAction()
+	{
+		$result = array();
+		$path = $_POST['path'];
+		$type = $_POST['type'];
+		$name = $_POST['name'];
+
+		$dir = $this->AccessDir($path, $type);
+		if ($dir) {
+			$fullName = $dir . '/' . $name;
+			if (preg_match('/[a-z0-9-_]+/sim', $_POST['name'])) {
+				if (is_dir($fullName)) {
+					$result['error'] = 'folderExists';
+				} else {
+					if (!mkdir($fullName)) {
+						$result['error'] = 'createFolderError';
+					}
+				}
+			} else {
+				$result['error'] = 'wrongFolderName';
+			}
+		} else {
+			$result['error'] = 'folderAccessDenied';
+		}
+
+		header('Content-Type: application/json');
+		echo json_encode($result);
+	}
+
+	/**
+	 * Загрузка папки
+	 */
+	public function openfolderAction()
+	{
+		// здесь будем хранить результат
+		$result = array();
+
+		// чистим исходные данные
+		if (!isset($_POST['path']) || $_POST['path'] == '/') {
+			$_POST['path'] = '';
+		}
+		if (!isset($_POST['type'])) {
+			$_POST['type'] = '';
+		}
+
+		// если зашли первый раз, показываем предыдущую папку
+		if (isset($_POST['default']) && isset($_SESSION['tiny_image_manager_path'], $_SESSION['tiny_image_manager_type']) && $_SESSION['tiny_image_manager_path'] !== 'undefined' && $_SESSION['tiny_image_manager_type'] !== 'undefined' && $_SESSION['tiny_image_manager_type']) {
+			$path = $_SESSION['tiny_image_manager_path'];
+			$type = $_SESSION['tiny_image_manager_type'];
+		} else {
+			$path = $_SESSION['tiny_image_manager_path'] = $_POST['path'];
+			// если тип не задан, показываем изображения
+			$type = $_POST['type'] ? $_POST['type'] : 'image';
+			$_SESSION['tiny_image_manager_type'] = $type;
+		}
+
+		if (isset($_POST['default']) && $_SESSION['tiny_image_manager_page'] != 1 && $_SESSION['tiny_image_manager_page'] != 'undefined') {
+			$page = $_SESSION['tiny_image_manager_page'];
+		} else {
+			$page = !empty($_POST['page']) ? (int)$_POST['page'] : 1;
+			$_SESSION['tiny_image_manager_page'] = $page;
+		}
+
+
+		// генерируем хлебные крошки
+		$result['path'] = $this->DirPath($type, $this->AccessDir($path, $type));
+
+		// генерируем дерево каталогов
+		$result['tree'] = '';
+		// если мы показываем файлы, а не картинки, то картинки надо пропускать
+		if ($type == 'file') {
+			$this->firstAct = false;
+			$result['tree'] .= $this->DirStructure('image', 'first');
+			$this->firstAct = $path ? false : true;
+			$result['tree'] .= $this->DirStructure('file', 'first', $this->AccessDir($path, 'file'));
+		} else {
+			// иначе показываем каталог в разделе изображения
+			$this->firstAct = $path ? false : true;
+			$result['tree'] .= $this->DirStructure('image', 'first', $this->AccessDir($path, 'image'));
+			$this->firstAct = false;
+			$result['tree'] .= $this->DirStructure('file', 'first');
+		}
+
+		// генерируем список файлов
+		$result['files'] = $this->ShowDir($path, $type, $page);
+		$result['pages'] = $this->ShowPages($path, $type, $page);
+		$result['totalPages'] = $this->total_pages;
+
+		header('Content-Type: application/json');
+		echo json_encode($result);
+	}
+	
+	/**
+	 * Загрузить изображение
+	 */
+	public function uploadfileAction()
+	{
+		// info about file
+    	$files = array();
+    	
+		// HTTP headers for no cache etc
+		header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
+		header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
+		header("Cache-Control: no-store, no-cache, must-revalidate");
+		header("Cache-Control: post-check=0, pre-check=0", false);
+		header("Pragma: no-cache");
+		
+		// JSON header
+		header('Content-Type: application/json');
+
+		// Settings
+		$files_path = trim($_POST['path']);
+		$tinyMCE_type = trim($_POST['pathtype']);
+		
+		trigger_error($files_path . " _for_ " . $tinyMCE_type, E_USER_NOTICE);
+		$targetDir = $this->AccessDir($files_path, $tinyMCE_type);
+		if (!$targetDir) {
+			trigger_error("Invalid target directory " . $_POST['pathtype'] . " -- " . $_POST['path'], E_USER_ERROR);
+			die('{"jsonrpc" : "2.0", "error" : {"code": 102, "message": "Failed to open output stream."}, "id" : "id"}');
+		}
+		
+		trigger_error("Will upload to " . $targetDir, E_USER_NOTICE);
+				
+		$cleanupTargetDir = true; // Remove old files
+		$maxFileAge = 5 * 3600; // Temp file age in seconds
+
+		// 5 minutes execution time
+		@set_time_limit(5 * 60);
+
+		// Get parameters
+		$chunk = isset($_REQUEST["chunk"]) ? intval($_REQUEST["chunk"]) : 0;
+		$chunks = isset($_REQUEST["chunks"]) ? intval($_REQUEST["chunks"]) : 0;
+		$fileName = isset($_REQUEST["name"]) ? $_REQUEST["name"] : '';
+		
+		// Clean the fileName for security reasons
+		// $fileName = $this->encodestring($filename)
+		$fileName = preg_replace('/[^\w\._]+/', '_', $fileName);
+		
+		// Make sure the fileName is unique but only if chunking is disabled
+		if ($chunks < 2 && file_exists($targetDir . DIRECTORY_SEPARATOR . $fileName)) {
+			$ext = strrpos($fileName, '.');
+			$fileName_a = substr($fileName, 0, $ext);
+			$fileName_b = substr($fileName, $ext);
+
+			$count = 1;
+			while (file_exists($targetDir . DIRECTORY_SEPARATOR . $fileName_a . '_' . $count . $fileName_b))
+				$count++;
+
+			$fileName = $fileName_a . '_' . $count . $fileName_b;
+		}
+
+		$filePath = $targetDir . DIRECTORY_SEPARATOR . $fileName;
+
+		// Create target dir
+		if (!file_exists($targetDir))
+			@mkdir($targetDir);
+		
+		// Remove old temp files	
+		if ($cleanupTargetDir && is_dir($targetDir) && ($dir = opendir($targetDir))) {
+			while (($file = readdir($dir)) !== false) {
+				$tmpfilePath = $targetDir . DIRECTORY_SEPARATOR . $file;
+
+				// Remove temp file if it is older than the max age and is not the current file
+				if (preg_match('/\.part$/', $file) && (filemtime($tmpfilePath) < time() - $maxFileAge) && ($tmpfilePath != "{$filePath}.part")) {
+					@unlink($tmpfilePath);
+				}
+			}
+
+			closedir($dir);
+		} else {
+			die('{"jsonrpc" : "2.0", "error" : {"code": 100, "message": "Failed to open temp directory."}, "id" : "id"}');
+		}
+
+		// Look for the content type header
+		if (isset($_SERVER["HTTP_CONTENT_TYPE"]))
+			$contentType = $_SERVER["HTTP_CONTENT_TYPE"];
+
+		if (isset($_SERVER["CONTENT_TYPE"]))
+			$contentType = $_SERVER["CONTENT_TYPE"];
+
+		// Handle non multipart uploads older WebKit versions didn't support multipart in HTML5
+		if (strpos($contentType, "multipart") !== false) {
+			if (isset($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name'])) {
+				// Open temp file
+				$out = fopen("{$filePath}.part", $chunk == 0 ? "wb" : "ab");
+				if ($out) {
+					// Read binary input stream and append it to temp file
+					$in = fopen($_FILES['file']['tmp_name'], "rb");
+
+					if ($in) {
+						while ($buff = fread($in, 4096))
+							fwrite($out, $buff);
+					} else
+						die('{"jsonrpc" : "2.0", "error" : {"code": 101, "message": "Failed to open input stream."}, "id" : "id"}');
+					fclose($in);
+					fclose($out);
+					@unlink($_FILES['file']['tmp_name']);
+				} else
+					die('{"jsonrpc" : "2.0", "error" : {"code": 102, "message": "Failed to open output stream."}, "id" : "id"}');
+			} else
+				die('{"jsonrpc" : "2.0", "error" : {"code": 103, "message": "Failed to move uploaded file."}, "id" : "id"}');
+		} else {
+			// Open temp file
+			$out = fopen("{$filePath}.part", $chunk == 0 ? "wb" : "ab");
+			if ($out) {
+				// Read binary input stream and append it to temp file
+				$in = fopen("php://input", "rb");
+				if ($in) {
+					while ($buff = fread($in, 4096))
+						fwrite($out, $buff);
+				} else
+					die('{"jsonrpc" : "2.0", "error" : {"code": 101, "message": "Failed to open input stream."}, "id" : "id"}');
+
+				fclose($in);
+				fclose($out);
+			} else
+				die('{"jsonrpc" : "2.0", "error" : {"code": 102, "message": "Failed to open output stream."}, "id" : "id"}');
+		}
+
+		// Check if file has been uploaded
+		if (!$chunks || $chunk == $chunks - 1) {
+			// Strip the temp .part suffix off 
+			rename("{$filePath}.part", $filePath);
+		}
+
+		$files[$fileName] = $this->getFileInfo($targetDir, $_POST['pathtype'], $fileName, $fileName);
+    	$this->addFilesInfo($_POST['path'], $_POST['pathtype'], $files);
+
+		// Return JSON-RPC response
+		die('{"jsonrpc" : "2.0", "result" : null, "id" : "id"}');
+	}
+	
+	/**
+	 * Удалить файл, или несколько файлов 
+	 */
+	public function delfileAction()
+	{
+		$return = array();
+		foreach ($_POST['files'] as $file) {
+			$return[$file['filename']] = $this->DelFile($_POST['type'], $_POST['path'], $file['md5'], $file['filename']);
+		}
+		
+        header('Content-Type: application/json');
+		echo json_encode($return);
+	}
+	
+	public function delfolderAction()
+	{
+		header('Content-Type: application/json');
+		
+		$pathtype = $_POST['type'];
+		$path = $_POST['path'];
+		
+		$realPath = $this->AccessDir($path, $pathtype);
+		if (!$realPath) {
+			return false;
+		}
+
+		$result = array();
+		$folder = ($pathtype == 'image') ? $this->_config['DIR_IMAGES'] : $this->_config['DIR_FILES'];
+		if (realpath($realPath . '/') == realpath(DIR_ROOT . $folder . '/')) {
+			$result['error'] = 'rootFolder';
+		} else {
+
+			$files = array();
+
+			$dir = new DirectoryIterator($realPath);
+			foreach ($dir as $file) {
+				if ($file->isDir() && !$file->isDot() && ($file->getFilename() !== '.thumbs')) {
+					$result['error'] = 'hasChildFolders';
+					continue;
+				} elseif ($file->isFile() && (substr($this->getFilename(), 0, 1) !== '.')) {
+					$files[] = $file;
+				}	
+			}
+
+			if (empty($result['error'])) {
+				// Delete all files in the .thumbs directory
+				$dir = new DirectoryIterator($realPath . DIRECTORY_SEPARATOR . '.thumbs');
+				foreach ($dir as $file) {
+					if ($file->isFile()) {
+						unlink($realPath . DIRECTORY_SEPARATOR . '.thumbs' . DIRECTORY_SEPARATOR . $file->getFilename());
+					}
+				}
+				// remove the directory itself
+				@rmdir($realPath . '/.thumbs');
+			}
+
+			// Now delete the main path files
+			foreach ($files as $f) {
+				unlink($realPath . DIRECTORY_SEPARATOR . $f);
+			}
+
+			if (!@rmdir($realPath)) {
+				$result['error'] = 'cantDelete';
+			}
+		}
+		
+		
+		echo json_encode($result);
+	}
+	
+	public function renamefileAction()
+	{
+		header('Content-Type: text/html; charset=utf-8');
+		
+		$type = $_POST['pathtype'];
+		$dir = $_POST['path'];
+		$filename = $_POST['filename'];
+		$newname = $_POST['newname'];
+		
+		
+		$dir = $this->AccessDir($dir, $type);
+		if (!$dir) {
+			echo "error";
+			return;
+		}
+
+		$filename = trim($filename);
+
+		if (empty($filename)) {
+			echo "error";
+			return;
+		}
+
+		if (!is_dir($dir . '/.thumbs')) {
+			echo "error";
+			return;
+		}
+
+
+		$dbfile = $dir . '/.thumbs/.db';
+		if (is_file($dbfile)) {
+			$dbfilehandle = fopen($dbfile, "r");
+			$dblength = filesize($dbfile);
+			if ($dblength > 0) {
+				$dbdata = fread($dbfilehandle, $dblength);
+			}
+			fclose($dbfilehandle);
+		} else {
+			echo "error";
+			return;
+		}
+
+		$files = unserialize($dbdata);
+
+		foreach ($files as $file => $fdata) {
+			if ($file == $filename) {
+				$files[$file]['name'] = $newname;
+				break;
+			}
+		}
+
+		$dbfilehandle = fopen($dbfile, "w");
+		fwrite($dbfilehandle, serialize($files));
+		fclose($dbfilehandle);
+
+		echo "ok";
+	}
+	
+	
+	/**
+	 * Проверка на разрешение записи в папку (не системное)
+	 * Directory transversal checks
+	 *
+	 * @param string $requestDirectory Запрашиваемая папка (относительно DIR_IMAGES или DIR_FILES)
+	 * @param (images|files) $typeDirectory Тип папки, изображения или файлы
+	 * @return path|false
+	 */
+	function AccessDir($requestDirectory, $typeDirectory) {
+		if (strcasecmp($typeDirectory, 'image') === 0) {
+			$full_request_images_dir = realpath($this->dir['image'] . DIRECTORY_SEPARATOR . $requestDirectory);
+			if (strpos($full_request_images_dir, $this->dir['image']) === 0) {
+				return $full_request_images_dir;
+			}
+		} elseif (strcasecmp($typeDirectory, 'file') === 0) {
+			$full_request_files_dir = realpath($this->dir['file'] . DIRECTORY_SEPARATOR . $requestDirectory);
+			if (strpos($full_request_files_dir, $this->dir['file']) === 0) {
+				return $full_request_files_dir;
+			}
+		}
+		
+		trigger_error("AccessDir Type: " . $typeDirectory . " IMAGES_DIR: " . $this->dir['image'], E_USER_ERROR);
+    	return false;
+	}
 
 
   /**
@@ -478,7 +741,7 @@ class TinyImageManager {
     
 	$dirIterator = new DirectoryIterator($dir);
 	foreach ($dirIterator as $file) {
-		if ($file->isFile() && !isset($files[$file->getFilename()])) {
+		if ($file->isFile() && (substr($file->getFilename(),0, 1) !== ".") && !isset($files[$file->getFilename()])) {
 			if (!empty($newData[$file->getFilename()])) {
 				$files[$file->getFilename()] = $newData[$file->getFilename()];
 			} else {
@@ -487,27 +750,7 @@ class TinyImageManager {
 			$newFiles++;
 		}	
 	}
-	
-	/*
-    $handle = opendir($dir);
-
-
-    if ($handle) {
-      $newFiles = 0;
-      while (false !== ($file = readdir($handle))) {
-        if ($file != "." && $file != ".." && is_file($dir . '/' . $file) && !isset($files[$file])) {
-          if (!empty($newData[$file])) {
-            $files[$file] = $newData[$file];
-          } else {
-            $files[$file] = $this->getFileInfo($dir, $type, $file);
-          }
-          $newFiles++;
-        }
-      }
-      closedir($handle);
-    }
-*/
-	
+		
     // if there are new files in directory, re-sort and resave .db file
     if ($newFiles > 0) {
       $this->sortFiles($files);
@@ -568,127 +811,6 @@ class TinyImageManager {
   }
 
 
-  function UploadFile($inputDir, $type) {
-    $dir = $this->AccessDir($inputDir, $type);
-    if (!$dir) {
-      return false;
-    }
-    
-    // Get parameters
-    $chunk = isset($_REQUEST["chunk"]) ? $_REQUEST["chunk"] : 0;
-    $chunks = isset($_REQUEST["chunks"]) ? $_REQUEST["chunks"] : 0;
-    $fileName = isset($_REQUEST["name"]) ? $_REQUEST["name"] : '';
-
-
-    // get extension and filename
-    if (strrpos($fileName, '.') !== false) {
-      $ext = strrpos($fileName, '.');
-      $extension = substr($fileName, $ext);
-      $fileName = substr($fileName, 0, $ext);
-      
-      $allowed = array_merge($this->_config['ALLOWED_IMAGES'], $this->_config['ALLOWED_FILES']);
-
-      if (!in_array(strtolower($extension), $allowed)) {
-        return false;
-      }
-    }
-    $cleanFileName = $this->encodestring($fileName);
-    $file = $cleanFileName . $extension;
-    
-    // info about file
-    $files = array();
-
-    // HTTP headers for no cache etc
-    header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
-    header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
-    header("Cache-Control: no-store, no-cache, must-revalidate");
-    header("Cache-Control: post-check=0, pre-check=0", false);
-    header("Pragma: no-cache");
-
-    // 5 minutes execution time
-    if (!ini_get('safe_mode')) {
-      set_time_limit(5 * 60);
-    }
-
-    // Make sure the fileName is unique but only if chunking is disabled
-    if ($chunks < 2 && file_exists($dir . '/' . $file)) {
-      $i = 0;
-      $tmpCleanFilename = $cleanFileName;
-      $tmpFilename = $fileName;
-      while (file_exists($dir . '/' . $file)) {
-        // cleanFileName for saving on disk, filename for saving file data in .db
-        $i++;
-        $cleanFileName = $tmpCleanFilename . '_(' . $i . ')';
-        $file = $cleanFileName . $extension;
-      }
-      $fileName = $tmpFilename . '_(' . $i . ')';
-    }
-
-    // Look for the content type header
-    if (isset($_SERVER["HTTP_CONTENT_TYPE"])) {
-      $contentType = $_SERVER["HTTP_CONTENT_TYPE"];
-    }
-
-    if (isset($_SERVER["CONTENT_TYPE"])) {
-      $contentType = $_SERVER["CONTENT_TYPE"];
-    }
-
-    // Handle non multipart uploads older WebKit versions didn't support multipart in HTML5
-    if (strpos($contentType, "multipart") !== false) {
-      if (isset($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name'])) {
-        // Open temp file
-        trigger_error("Uploading file", E_USER_NOTICE);
-        $out = fopen($dir . '/' . $file, $chunk == 0 ? "wb" : "ab");
-        if ($out) {
-          // Read binary input stream and append it to temp file
-          $in = fopen($_FILES['file']['tmp_name'], "rb");
-
-          if ($in) {
-            while ($buff = fread($in, 4096)) {
-              fwrite($out, $buff);
-            }
-          } else {
-            die('{"jsonrpc" : "2.0", "error" : {"code": 101, "message": "Failed to open input stream."}, "id" : "id"}');
-          }
-          fclose($in);
-          fclose($out);
-          @unlink($_FILES['file']['tmp_name']);
-        } else {
-          die('{"jsonrpc" : "2.0", "error" : {"code": 102, "message": "Failed to open output stream."}, "id" : "id"}');
-        }
-      } else {
-        die('{"jsonrpc" : "2.0", "error" : {"code": 103, "message": "Failed to move uploaded file."}, "id" : "id"}');
-      }
-    } else {
-      // Open temp file
-      $out = fopen($dir . '/' . $file, $chunk == 0 ? "wb" : "ab");
-      if ($out) {
-        // Read binary input stream and append it to temp file
-        $in = fopen("php://input", "rb");
-
-        if ($in) {
-          while ($buff = fread($in, 4096)) {
-            fwrite($out, $buff);
-          }
-        } else {
-          die('{"jsonrpc" : "2.0", "error" : {"code": 101, "message": "Failed to open input stream."}, "id" : "id"}');
-        }
-
-        fclose($in);
-        fclose($out);
-      } else {
-        die('{"jsonrpc" : "2.0", "error" : {"code": 102, "message": "Failed to open output stream."}, "id" : "id"}');
-      }
-    }
-
-    $files[$file] = $this->getFileInfo($dir, $type, $file, $fileName);
-
-    $this->addFilesInfo($inputDir, $type, $files);
-
-    return true;
-  }
-
-
   function sortFiles(&$files) {
     // function for sorting files by date/filename
     function cmp_date_name($a, $b) {
@@ -699,52 +821,6 @@ class TinyImageManager {
 
     // sort array
     uasort($files, 'cmp_date_name');
-  }
-
-
-  function RenameFile($type, $dir, $filename, $newname) {
-    $dir = $this->AccessDir($dir, $type);
-    if (!$dir) {
-      return false;
-    }
-
-    $filename = trim($filename);
-
-    if (empty($filename)) {
-      return 'error';
-    }
-
-    if (!is_dir($dir . '/.thumbs')) {
-      return 'error';
-    }
-
-
-    $dbfile = $dir . '/.thumbs/.db';
-    if (is_file($dbfile)) {
-      $dbfilehandle = fopen($dbfile, "r");
-      $dblength = filesize($dbfile);
-      if ($dblength > 0) {
-        $dbdata = fread($dbfilehandle, $dblength);
-      }
-      fclose($dbfilehandle);
-    } else {
-      return 'error';
-    }
-
-    $files = unserialize($dbdata);
-
-    foreach ($files as $file => $fdata) {
-      if ($file == $filename) {
-        $files[$file]['name'] = $newname;
-        break;
-      }
-    }
-
-    $dbfilehandle = fopen($dbfile, "w");
-    fwrite($dbfilehandle, serialize($files));
-    fclose($dbfilehandle);
-
-    return 'ok';
   }
 
   function bytes_to_str($bytes) {
@@ -813,233 +889,172 @@ class TinyImageManager {
     return $ret;
   }
 
-  function showPages($path, $type, $activePage) {
-    $result = '';
-    if ($this->total_pages > 1) {
-      $result .= '<ul>';
-      for ($i = 1; $i <= $this->total_pages; $i++) {
-        $class = '';
-        if ($i == $activePage) {
-          $class = ' class="active"';
-        }
-        $result .= '<li' . $class . '><a href="#" pathtype="' . $type . '" path="' . $path . '" data-page="' . $i . '">' . $i . '</a></li> ';
-      }
-      $result .= '</ul>';
-    }
+	function showPages($path, $type, $activePage) {
+		$result = '';
+		if ($this->total_pages > 1) {
+			$result .= '<ul>';
+			for ($i = 1; $i <= $this->total_pages; $i++) {
+				$class = '';
+				if ($i == $activePage) {
+					$class = ' class="active"';
+				}
+				$result .= '<li' . $class . '><a href="#" pathtype="' . $type . '" path="' . $path . '" data-page="' . $i . '">' . $i . '</a></li> ';
+			}
+			$result .= '</ul>';
+		}
 
-    return $result;
-  }
-
-
-  function GetThumb($dir, $md5, $filename, $mode, $width = 100, $height = 100) {
-    $path = realpath(DIR_ROOT . DS . $dir);
-    $ext = explode('.', $filename);
-    $ext = strtolower(end($ext)); // filename extention
-    $thumbFilename = DS . '.thumbs' . DS . $md5 . '_' . $width . '_' . $height . '_' . $mode . '.' . $ext;
-
-    // if thumb already exists
-    if (is_file($path . $thumbFilename)) {
-      return $this->http_root . $dir . $thumbFilename;
-    } else {
-      // if not an image or we are in 'file' folder
-      if (in_array($ext, $this->_config['ALLOWED_IMAGES']) && strpos($dir, $this->_config['DIR_IMAGES']) === 0) {
-        //if it's an image, create thumb
-        try {
-          // if no width or height specified
-          $width = $width ? $width : null;
-          $height = $height ? $height : null;
-
-          $thumb = WideImage::load($path . '/' . $filename)->resizeDown($width, $height);
-
-          if ($mode == 2) { // if generating small thumb for imageManager inner use - make it exactly 100x100 with white background
-            $thumb = $thumb->resizeCanvas($width, $height, 'center', 'center', 0x00FFFFFF);
-          }
-          $thumb-> //				roundCorners(20,0x00FFFFFF,4)->
-              saveToFile($path . $thumbFilename);
-          // clear some memory
-          unset($thumb);
-
-          return $this->http_root . $dir . $thumbFilename;
-        } catch (WideImage_InvalidImageSourceException $e) {
-          $e->getMessage();
-        }
-      }
-    }
+		return $result;
+	}
 
 
-    // get path to img/fileicons folder
-    $server_url = rtrim(dirname(__FILE__), '/') . '/../../';
-    $server_url = realpath($server_url);
-    $server_url = rtrim($server_url, '/') . '/img/fileicons/';
-    $url = $this->http_root . substr($server_url, strlen(DIR_ROOT));
+	function GetThumb($dir, $md5, $filename, $mode, $width = 100, $height = 100) {
+		$path = realpath(DIR_ROOT . DS . $dir);
+		$ext = explode('.', $filename);
+		$ext = strtolower(end($ext)); // filename extention
+		$thumbFilename = DS . '.thumbs' . DS . $md5 . '_' . $width . '_' . $height . '_' . $mode . '.' . $ext;
+
+    	// if thumb already exists
+		if (is_file($path . $thumbFilename)) {
+			return $this->http_root . $dir . $thumbFilename;
+		} else {
+			// if not an image or we are in 'file' folder
+			if (in_array($ext, $this->_config['ALLOWED_IMAGES']) && strpos($dir, $this->_config['DIR_IMAGES']) === 0) {
+				//if it's an image, create thumb
+				try {
+					// if no width or height specified
+					$width = $width ? $width : null;
+					$height = $height ? $height : null;
+
+					$thumb = WideImage::load($path . '/' . $filename)->resizeDown($width, $height);
+
+					if ($mode == 2) { // if generating small thumb for imageManager inner use - make it exactly 100x100 with white background
+						$thumb = $thumb->resizeCanvas($width, $height, 'center', 'center', 0x00FFFFFF);
+					}
+					$thumb-> //				roundCorners(20,0x00FFFFFF,4)->
+						saveToFile($path . $thumbFilename);
+					// clear some memory
+					unset($thumb);
+
+					return $this->http_root . $dir . $thumbFilename;
+				} catch (WideImage_InvalidImageSourceException $e) {
+					$e->getMessage();
+				}
+			}
+		}
+
+		// get path to img/fileicons folder
+		$server_url = rtrim(dirname(__FILE__), '/') . '/../../';
+		$server_url = realpath($server_url);
+		$server_url = rtrim($server_url, '/') . '/img/fileicons/';
+		$url = $this->http_root . substr($server_url, strlen(DIR_ROOT));
+
+		// show the file-type icon
+		if (!empty($ext) && file_exists($server_url . $ext . '.png')) {
+			return $url . $ext . '.png';
+		} else {
+			return $url . 'none.png';
+		}
+	}
+	
+
+	function DelFile($pathtype, $path, $md5, $filename) {
+		$path = $this->AccessDir($path, $pathtype);
+		if (!$path) {
+			return false;
+		}
+
+		if (is_dir($path . '/.thumbs')) {
+			if ($pathtype == 'image') {
+				$handle = opendir($path . '/.thumbs');
+				if ($handle) {
+					while (false !== ($file = readdir($handle))) {
+						if ($file != "." && $file != "..") {
+							if (substr($file, 0, 32) == $md5) {
+								unlink($path . '/.thumbs/' . $file);
+							}
+						}
+					}
+				}
+			}
+
+			$dbfile = $path . '/.thumbs/.db';
+			if (is_file($dbfile)) {
+				$dbfilehandle = fopen($dbfile, "r");
+				$dblength = filesize($dbfile);
+				if ($dblength > 0) {
+					$dbdata = fread($dbfilehandle, $dblength);
+				}
+				fclose($dbfilehandle);
+				$dbfilehandle = fopen($dbfile, "w");
+			} else {
+				$dbfilehandle = fopen($dbfile, "w");
+			}
 
 
-    // show the file-type icon
-    if (!empty($ext) && file_exists($server_url . $ext . '.png')) {
-      return $url . $ext . '.png';
-    } else {
-      return $url . 'none.png';
-    }
+			if (isset($dbdata)) {
+				$files = unserialize($dbdata);
+			} else {
+				$files = array();
+			}
+
+			unset($files[$filename]);
+
+			fwrite($dbfilehandle, serialize($files));
+			fclose($dbfilehandle);
+		}
+
+		if (is_file($path . '/' . $filename)) {
+			if (unlink($path . '/' . $filename)) {
+				return true;
+			}
+		}
+
+		return 'error';
+	}
 
 
-  }
+	function translit($string) {
+		$cyr = array( "А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И", "Й", "К", "Л", "М", "Н", "О", "П", "Р", "С", "Т",
+		          "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Ъ", "Ы", "Ь", "Э", "Ю", "Я", "а", "б", "в", "г", "д", "е", "ё",
+		          "ж", "з", "и", "й", "к", "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ",
+		          "ъ", "ы", "ь", "э", "ю", "я"
+		);
+		$lat = array( "A", "B", "V", "G", "D", "E", "YO", "ZH", "Z", "I", "Y", "K", "L", "M", "N", "O", "P", "R", "S", "T",
+		          "U", "F", "H", "TS", "CH", "SH", "SHCH", "", "YI", "", "E", "YU", "YA", "a", "b", "v", "g", "d", "e",
+		          "yo", "zh", "z", "i", "y", "k", "l", "m", "n", "o", "p", "r", "s", "t", "u", "f", "h", "ts", "ch",
+		          "sh", "shch", "", "yi", "", "e", "yu", "ya"
+		);
+		/*for ($i = 0; $i < count($cyr); $i++) {
+			$c_cyr = $cyr[$i];
+			$c_lat = $lat[$i];
+		}*/
+		$string = str_replace($cyr, $lat, $string);
 
+		$string = preg_replace("/([qwrtpsdfghklzxcvbnmQWRTPSDFGHKLZXCVBNM]+)[jJ]e/", "\${1}e", $string);
+		$string = preg_replace("/([qwrtpsdfghklzxcvbnmQWRTPSDFGHKLZXCVBNM]+)[jJ]/", "\${1}'", $string);
+		$string = preg_replace("/([eyuioaEYUIOA]+)[Kk]h/", "\${1}h", $string);
+		$string = preg_replace("/^kh/", "h", $string);
+		$string = preg_replace("/^Kh/", "H", $string);
 
-  function DelFile($pathtype, $path, $md5, $filename) {
-    $path = $this->AccessDir($path, $pathtype);
-    if (!$path) {
-      return false;
-    }
+		if (function_exists('iconv')) {
+			$string = iconv('UTF-8', 'ASCII//TRANSLIT', $string);
+		}
+		return $string;
+	}
 
-    if (is_dir($path . '/.thumbs')) {
-      if ($pathtype == 'image') {
-        $handle = opendir($path . '/.thumbs');
-        if ($handle) {
-          while (false !== ($file = readdir($handle))) {
-            if ($file != "." && $file != "..") {
-              if (substr($file, 0, 32) == $md5) {
-                unlink($path . '/.thumbs/' . $file);
-              }
-            }
-          }
-        }
-      }
+	function encodestring($string) {
+		$string = str_replace(array( " ", '"', "&", "<", ">" ), ' ', $string);
+		$string = preg_replace("/[_\s,?!\[\](){}]+/", "_", $string);
+		$string = preg_replace("/-{2,}/", "-", $string);
+		$string = preg_replace("/\.{2,}/", ".", $string);
+		$string = preg_replace("/_-+_/", '-', $string);
+		$string = preg_replace("/[_\-]+$/", '', $string);
+		$string = $this->translit($string);
+		$string = preg_replace("/j{2,}/", "j", $string);
+		$string = preg_replace("/[^0-9A-Za-z_\-\.]+/", "", $string);
 
-      $dbfile = $path . '/.thumbs/.db';
-      if (is_file($dbfile)) {
-        $dbfilehandle = fopen($dbfile, "r");
-        $dblength = filesize($dbfile);
-        if ($dblength > 0) {
-          $dbdata = fread($dbfilehandle, $dblength);
-        }
-        fclose($dbfilehandle);
-        $dbfilehandle = fopen($dbfile, "w");
-      } else {
-        $dbfilehandle = fopen($dbfile, "w");
-      }
-
-
-      if (isset($dbdata)) {
-        $files = unserialize($dbdata);
-      } else {
-        $files = array();
-      }
-
-      unset($files[$filename]);
-
-      fwrite($dbfilehandle, serialize($files));
-      fclose($dbfilehandle);
-    }
-
-    if (is_file($path . '/' . $filename)) {
-      if (unlink($path . '/' . $filename)) {
-        return true;
-      }
-    } else {
-      return 'error';
-    }
-
-    return 'error';
-  }
-
-  function DelFolder($pathtype, $path) {
-    $realPath = $this->AccessDir($path, $pathtype);
-    if (!$realPath) {
-      return false;
-    }
-
-    $result = array();
-    $folder = ($pathtype == 'image') ? $this->_config['DIR_IMAGES'] : $this->_config['DIR_FILES'];
-    if (realpath($realPath . '/') == realpath(DIR_ROOT . $folder . '/')) {
-      $result['error'] = 'rootFolder';
-    } else {
-
-      $files = array();
-
-      $handle = opendir($realPath);
-      if ($handle) {
-        while (false !== ($file = readdir($handle))) {
-          if ($file != "." && $file != ".." && trim($file) != "" && $file != ".thumbs") {
-            if (is_dir($realPath . '/' . $file)) {
-              $result['error'] = 'hasChildFolders';
-              continue;
-            } else {
-              $files[] = $file;
-            }
-          }
-        }
-      }
-      closedir($handle);
-
-      if (empty($result['error'])) {
-        $handle = opendir($realPath . '/.thumbs');
-        if ($handle) {
-          while (false !== ($file = readdir($handle))) {
-            if ($file != "." && $file != "..") {
-              if (is_file($realPath . '/.thumbs/' . $file)) {
-                unlink($realPath . '/.thumbs/' . $file);
-              }
-            }
-          }
-          closedir($handle);
-          rmdir($realPath . '/.thumbs');
-        }
-
-        foreach ($files as $f) {
-          if (is_file($realPath . '/' . $f)) {
-            unlink($realPath . '/' . $f);
-          }
-        }
-
-        if (!rmdir($realPath)) {
-          $result['error'] = 'cantDelete';
-        }
-      }
-    }
-
-
-    return $result;
-  }
-
-  function translit($string) {
-    $cyr = array( "А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И", "Й", "К", "Л", "М", "Н", "О", "П", "Р", "С", "Т",
-                  "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Ъ", "Ы", "Ь", "Э", "Ю", "Я", "а", "б", "в", "г", "д", "е", "ё",
-                  "ж", "з", "и", "й", "к", "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ",
-                  "ъ", "ы", "ь", "э", "ю", "я"
-    );
-    $lat = array( "A", "B", "V", "G", "D", "E", "YO", "ZH", "Z", "I", "Y", "K", "L", "M", "N", "O", "P", "R", "S", "T",
-                  "U", "F", "H", "TS", "CH", "SH", "SHCH", "", "YI", "", "E", "YU", "YA", "a", "b", "v", "g", "d", "e",
-                  "yo", "zh", "z", "i", "y", "k", "l", "m", "n", "o", "p", "r", "s", "t", "u", "f", "h", "ts", "ch",
-                  "sh", "shch", "", "yi", "", "e", "yu", "ya"
-    );
-    /*    for ($i = 0; $i < count($cyr); $i++) {
-      $c_cyr = $cyr[$i];
-      $c_lat = $lat[$i];
-    }*/
-    $string = str_replace($cyr, $lat, $string);
-
-    $string = preg_replace("/([qwrtpsdfghklzxcvbnmQWRTPSDFGHKLZXCVBNM]+)[jJ]e/", "\${1}e", $string);
-    $string = preg_replace("/([qwrtpsdfghklzxcvbnmQWRTPSDFGHKLZXCVBNM]+)[jJ]/", "\${1}'", $string);
-    $string = preg_replace("/([eyuioaEYUIOA]+)[Kk]h/", "\${1}h", $string);
-    $string = preg_replace("/^kh/", "h", $string);
-    $string = preg_replace("/^Kh/", "H", $string);
-
-    return $string;
-  }
-
-  function encodestring($string) {
-    $string = str_replace(array( " ", '"', "&", "<", ">" ), ' ', $string);
-    $string = preg_replace("/[_\s,?!\[\](){}]+/", "_", $string);
-    $string = preg_replace("/-{2,}/", "-", $string);
-    $string = preg_replace("/\.{2,}/", ".", $string);
-    $string = preg_replace("/_-+_/", '-', $string);
-    $string = preg_replace("/[_\-]+$/", '', $string);
-    $string = $this->translit($string);
-    $string = preg_replace("/j{2,}/", "j", $string);
-    $string = preg_replace("/[^0-9A-Za-z_\-\.]+/", "", $string);
-
-    return $string;
-  }
+		return $string;
+	}
 
 }
 

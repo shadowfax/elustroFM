@@ -274,8 +274,8 @@
 
     $("#uploader").pluploadQueue({
       runtimes: 'html5,html4',
-      multipart_params: {action: 'uploadfile', pathtype: path.type, path: path.path},
-      headers: {action: 'uploadfile', pathtype: path.type, path: path.path},
+      multipart_params: {action: 'uploadfile', pathtype: path.type, path: path.path, 'folders': folders},
+      headers: {action: 'uploadfile', pathtype: path.type, path: path.path, 'folders': folders},
       max_file_size: '50mb',
       url: ajaxPath,
       resize: resizeObj,
