@@ -29,6 +29,7 @@ class TinyImageManager extends Json_Server {
 	 */
 	public function __construct() 
 	{
+		/*
 		// Bypass the constructor on file uploads
 		if (isset($_POST['action'])) {
 			if (strcasecmp($_POST['action'], 'uploadFile') === 0) {
@@ -48,6 +49,7 @@ class TinyImageManager extends Json_Server {
 				return;	
 			}
 		}
+		*/
 		
 		// Initialize the JSON-RPC server
 		parent::__construct();
@@ -242,6 +244,19 @@ class TinyImageManager extends Json_Server {
 	 */
 	public function uploadfileAction()
 	{
+		// ToDo: Try the config first
+		$url = dirname($_SERVER['REQUEST_URI']) . '/upload.php';
+		
+		// return the setup for plupload
+		$result = array(
+			'runtimes'		=> 'html5,html4',
+			'max_file_size'	=> '50mb',
+			'url'			=> $url
+		);
+		
+		return $result;
+		
+		/*
 		// Must initialize as we skipped the parent class initialization
 		$this->init();
 		
@@ -374,6 +389,7 @@ class TinyImageManager extends Json_Server {
 
 		// Return JSON-RPC response
 		die('{"jsonrpc" : "2.0", "result" : null, "id" : "id"}');
+		*/
 	}
 	
 	/**

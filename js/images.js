@@ -325,18 +325,55 @@
 
 		$('#normalPathVal').val(path.path);
 		$('#normalPathtypeVal').val(path.type);
-
-		$('#upload').show();
-
-		$("#uploader").pluploadQueue({
-			runtimes: 'html5,html4',
-			multipart_params: {action: 'uploadfile', pathtype: path.type, path: path.path, 'folders': folders},
-			headers: {action: 'uploadfile', pathtype: path.type, path: path.path, 'folders': folders},
-			max_file_size: '50mb',
-			/*url: ajaxPath,*/
-			url: $.jsonRPC.endPoint,
-			resize: resizeObj,
-			filters: [filterObj]
+		$loader.show();
+		
+		// ToDo: Make a request to the JSON RPC which will set everything up
+		$.jsonRPC.request('uploadFile', {
+			params: {'type': path.type, 'path': path.path, 'folders': folders},
+			success: function(result) {
+				// Do something with the result here
+				// It comes back as an RPC 2.0 compatible response object
+				$loader.hide();
+				$('#upload').show();
+			
+				$("#uploader").pluploadQueue({
+					runtimes: result.result.runtimes,
+					multipart_params: {'type': path.type, 'path': path.path, 'folders': folders},
+					headers: {'type': path.type, 'path': path.path, 'folders': folders},
+					max_file_size: result.result.max_file_size,
+					/*url: ajaxPath,*/
+					url: result.result.url,
+					resize: resizeObj,
+					filters: [filterObj]
+				});
+				
+				/*
+				$("#uploader").pluploadQueue({
+					runtimes: 'html5,html4',
+					multipart_params: {action: 'uploadfile', pathtype: path.type, path: path.path, 'folders': folders},
+					headers: {action: 'uploadfile', pathtype: path.type, path: path.path, 'folders': folders},
+					max_file_size: '50mb',
+					url: $.jsonRPC.endPoint,
+					resize: resizeObj,
+					filters: [filterObj]
+				});
+				*/
+				
+			},
+			error: function(result) {
+				// Result is an RPC 2.0 compatible response object
+				$loader.hide();
+				
+				if (result.error) {
+					if (result.error.message) {
+						alert(_t(result.error.message));
+					} else {
+						alert('Unknown error');
+					}
+				} else {
+					alert('Unknown error');
+				}
+			}
 		});
 	});
 
