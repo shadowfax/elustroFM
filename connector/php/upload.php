@@ -12,6 +12,7 @@
 
 
 // HTTP headers for no cache etc
+header("HTTP/1.1 500 Internal Server Error");
 header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
 header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
 header("Cache-Control: no-store, no-cache, must-revalidate");
@@ -201,8 +202,8 @@ if (!$chunks || $chunk == $chunks - 1) {
 	rename("{$filePath}.part", $filePath);
 }
 
-
 // Return JSON-RPC response
+header("HTTP/1.1 200 OK", true);
 die('{"jsonrpc" : "2.0", "result" : null, "id" : "id"}');
 
 ?>
