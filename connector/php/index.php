@@ -7,7 +7,9 @@ ini_set('display_errors', 1);
 error_reporting(E_ALL);
 include 'config.php';
 
-class TinyImageManager {
+include_once 'Json/Server.php';
+
+class TinyImageManager extends Json_Server {
 
 	var $dir;
 	var $firstAct = false;
@@ -16,6 +18,7 @@ class TinyImageManager {
 	var $total_pages = 1;
 	var $http_root;
 
+	
 	protected $_config;
   
 	/**
@@ -24,19 +27,42 @@ class TinyImageManager {
 	 *
 	 * @return TinyImageManager
 	 */
-	function TinyImageManager() {
-
-		ob_start("ob_gzhandler");
-		// This shouldn't be here as we could output JSON
-		// header('Content-Type: text/html; charset=utf-8');
-
-		if (isset($_POST['SID'])) {
-			session_id($_POST['SID']);
+	public function __construct() 
+	{
+		// Bypass the constructor on file uploads
+		if (isset($_POST['action'])) {
+			if (strcasecmp($_POST['action'], 'uploadFile') === 0) {
+				// this is a special case as it is not purelly JSON-RPC
+				// Lets fake things a little
+				$this->_request = new Json_Server_Request();
+				$this->_request->setVersion("2.0");
+				
+				$params = array();
+				if (isset($_POST['folders'])) {
+					$params['folders'] = $_POST['folders'];
+				}
+				$this->_request->setParams($params);
+				
+				// call the method
+				$this->uploadfileAction();
+				return;	
+			}
 		}
+		
+		// Initialize the JSON-RPC server
+		parent::__construct();
+	}
+	
+	protected function init()
+	{
+		ob_start("ob_gzhandler");
+	
+		$sid = $this->getRequest()->getParam('SID');
+		if(null !== $sid) session_id($sid);
+		
 		if (!isset($_SESSION)) {
 			session_start();
 		}
-		$this->SID = session_id();
 		require 'yoursessioncheck.php';
 
 		if (!isset($_SESSION['tiny_image_manager_path'])) {
@@ -60,8 +86,8 @@ class TinyImageManager {
 		$this->_config['DIR_FILES'] = DIR_FILES;
     
 		// Get the user defined folder
-		$folders = !empty($_POST['folders']) && $_POST['folders'] !== 'undefined' ? $_POST['folders'] : null;
-		if ($folders !== null) {
+		$folders = $this->getRequest()->getParam('folders');
+		if (null !== $folders) {
 			// Load the folder configuration array
 			$public_folders = (include('config.folders.php'));
     	
@@ -85,23 +111,12 @@ class TinyImageManager {
 		$this->http_root = rtrim(HTTP_ROOT, '/');
 
 		include WIDE_IMAGE_LIB;
-
-		$actionName = strtolower(trim($_POST['action']));
-		$method_name = $actionName . 'Action';
-		
-		if (method_exists($this, $method_name)) {
-			// Call the action method!
-			$this->{$method_name}();
-		} else {
-			$result = array('error' => 'badRequest');
-			header('Content-Type: application/json');
-			echo json_encode($return);
-		}
 	}
   
 	public function setupdataAction()
 	{
-		$lang = !empty($_POST['lang']) && $_POST['lang'] !== 'undefined' ? $_POST['lang'] : LANG;
+		$lang = $this->getRequest()->getParam('lang');
+		if (null === $lang) $lang = LANG;
 
 		$return['lang'] = '{}';
 		$langFile = '../../langs/' . mb_strtolower($lang) . '_data.js';
@@ -114,8 +129,7 @@ class TinyImageManager {
 		$return['upload']['images']['height'] = MAX_HEIGHT;
 		$return['upload']['files']['allowed'] = array_merge($this->_config['ALLOWED_IMAGES'], $this->_config['ALLOWED_FILES']);
 		
-		header('Content-Type: application/json');
-		echo json_encode($return);
+		return $return;
 	}
 	
 	/**
@@ -124,31 +138,38 @@ class TinyImageManager {
 	public function newfolderAction()
 	{
 		$result = array();
-		$path = $_POST['path'];
-		$type = $_POST['type'];
-		$name = $_POST['name'];
-
-		// trigger_error("NewFolder", E_USER_NOTICE);
-		$dir = $this->AccessDir($path, $type);
+		
+		$dir = $this->AccessDir($this->getRequest()->getParam('path'), $this->getRequest()->getParam('type'));
 		if ($dir) {
-			$fullName = $dir . '/' . $name;
-			if (preg_match('/[a-z0-9-_]+/sim', $_POST['name'])) {
+			$fullName = $dir . '/' . $this->getRequest()->getParam('name');
+			if (preg_match('/[a-z0-9-_]+/sim', $this->getRequest()->getParam('name'))) {
 				if (is_dir($fullName)) {
-					$result['error'] = 'folderExists';
+					$response = $this->getResponse();
+					$response->setError( new Json_Server_Error("Folder with this name already exists"));
+					$response->sendResponse();
+					exit(0);
 				} else {
 					if (!mkdir($fullName)) {
-						$result['error'] = 'createFolderError';
+						$response = $this->getResponse();
+						$response->setError( new Json_Server_Error("Error creating folder"));
+						$response->sendResponse();
+						exit(0);
 					}
 				}
 			} else {
-				$result['error'] = 'wrongFolderName';
+				$response = $this->getResponse();
+				$response->setError( new Json_Server_Error("Folder name can only contain latin letters, digits and underscore"));
+				$response->sendResponse();
+				exit(0);
 			}
 		} else {
-			$result['error'] = 'folderAccessDenied';
+			$response = $this->getResponse();
+			$response->setError( new Json_Server_Error("Folder access denied"));
+			$response->sendResponse();
+			exit(0);
 		}
 
-		header('Content-Type: application/json');
-		echo json_encode($result);
+		return $result;
 	}
 
 	/**
@@ -160,35 +181,36 @@ class TinyImageManager {
 		$result = array();
 
 		// чистим исходные данные
-		if (!isset($_POST['path']) || $_POST['path'] == '/') {
-			$_POST['path'] = '';
+		$path = $this->getRequest()->getParam('path');
+		
+		if (!isset($path) || $path == '/') {
+			$path = '';
 		}
-		if (!isset($_POST['type'])) {
-			$_POST['type'] = '';
-		}
+		$type = $this->getRequest()->getParam('type');
 
 		// если зашли первый раз, показываем предыдущую папку
 		// if you went for the first time, show the previous folder
-		if (isset($_POST['default']) && isset($_SESSION['tiny_image_manager_path'], $_SESSION['tiny_image_manager_type']) && $_SESSION['tiny_image_manager_path'] !== 'undefined' && $_SESSION['tiny_image_manager_type'] !== 'undefined' && $_SESSION['tiny_image_manager_type']) {
+		$default = $this->getRequest()->getParam('default');
+		if (isset($default) && isset($_SESSION['tiny_image_manager_path'], $_SESSION['tiny_image_manager_type']) && $_SESSION['tiny_image_manager_path'] !== 'undefined' && $_SESSION['tiny_image_manager_type'] !== 'undefined' && $_SESSION['tiny_image_manager_type']) {
 			$path = $_SESSION['tiny_image_manager_path'];
 			$type = $_SESSION['tiny_image_manager_type'];
 		} else {
-			$path = $_SESSION['tiny_image_manager_path'] = $_POST['path'];
+			$path = $_SESSION['tiny_image_manager_path'] = $this->getRequest()->getParam('path');
 			// если тип не задан, показываем изображения
-			$type = $_POST['type'] ? $_POST['type'] : 'image';
+			$type = $type ? $type : 'image';
 			$_SESSION['tiny_image_manager_type'] = $type;
 		}
 
-		if (isset($_POST['default']) && $_SESSION['tiny_image_manager_page'] != 1 && $_SESSION['tiny_image_manager_page'] != 'undefined') {
+		if (isset($default) && $_SESSION['tiny_image_manager_page'] != 1 && $_SESSION['tiny_image_manager_page'] != 'undefined') {
 			$page = $_SESSION['tiny_image_manager_page'];
 		} else {
-			$page = !empty($_POST['page']) ? (int)$_POST['page'] : 1;
+			$page = $this->getRequest()->getParam('page');
+			if (null === $page) $page = 1;
 			$_SESSION['tiny_image_manager_page'] = $page;
 		}
 
 
 		// генерируем хлебные крошки
-		// trigger_error("OpenFolder " . $path . " & " . $type, E_USER_NOTICE);
 		$result['path'] = $this->DirPath($type, $this->AccessDir($path, $type));
 
 		// генерируем дерево каталогов
@@ -212,8 +234,7 @@ class TinyImageManager {
 		$result['pages'] = $this->ShowPages($path, $type, $page);
 		$result['totalPages'] = $this->total_pages;
 
-		header('Content-Type: application/json');
-		echo json_encode($result);
+		return $result;
 	}
 	
 	/**
@@ -221,6 +242,9 @@ class TinyImageManager {
 	 */
 	public function uploadfileAction()
 	{
+		// Must initialize as we skipped the parent class initialization
+		$this->init();
+		
 		// info about file
     	$files = array();
     	
@@ -358,30 +382,28 @@ class TinyImageManager {
 	public function delfileAction()
 	{
 		$return = array();
-		foreach ($_POST['files'] as $file) {
-			$return[$file['filename']] = $this->DelFile($_POST['type'], $_POST['path'], $file['md5'], $file['filename']);
+		$files = $this->getRequest()->getParam('files');
+		foreach ($files as $file) {
+			$return[$file['filename']] = $this->DelFile($this->getRequest()->getParam('type'), $this->getRequest()->getParam('path'), $file['md5'], $file['filename']);
 		}
 		
-		header('Content-Type: application/json');
-		echo json_encode($return);
+		return $return;
 	}
 	
 	public function delfolderAction()
-	{
-		header('Content-Type: application/json');
-		
-		$pathtype = $_POST['type'];
-		$path = $_POST['path'];
-		
-		$realPath = $this->AccessDir($path, $pathtype);
+	{	
+		$realPath = $this->AccessDir($this->getRequest()->getParam('path'), $this->getRequest()->getParam('type'));
 		if (!$realPath) {
 			return false;
 		}
 
 		$result = array();
-		$folder = ($pathtype == 'image') ? $this->_config['DIR_IMAGES'] : $this->_config['DIR_FILES'];
+		$folder = ($this->getRequest()->getParam('type') == 'image') ? $this->_config['DIR_IMAGES'] : $this->_config['DIR_FILES'];
 		if (realpath($realPath . '/') == realpath(DIR_ROOT . $folder . '/')) {
-			$result['error'] = 'rootFolder';
+			$response = $this->getResponse();
+			$response->setError( new Json_Server_Error("Root folder cannot be deleted!"));
+			$response->sendResponse();
+			exit(0);
 		} else {
 
 			$files = array();
@@ -389,65 +411,83 @@ class TinyImageManager {
 			$dir = new DirectoryIterator($realPath);
 			foreach ($dir as $file) {
 				if ($file->isDir() && !$file->isDot() && ($file->getFilename() !== '.thumbs')) {
-					$result['error'] = 'hasChildFolders';
-					continue;
+					$response = $this->getResponse();
+					$response->setError( new Json_Server_Error("Folder cannot be delete while it has subfolders"));
+					$response->sendResponse();
+					exit(0);
 				} elseif ($file->isFile() && (substr($this->getFilename(), 0, 1) !== '.')) {
 					$files[] = $file;
 				}	
 			}
 
-			if (empty($result['error'])) {
-				// Delete all files in the .thumbs directory
+			// Delete all files in the .thumbs directory
+			if (is_dir($realPath . DIRECTORY_SEPARATOR . '.thumbs')) {
 				$dir = new DirectoryIterator($realPath . DIRECTORY_SEPARATOR . '.thumbs');
 				foreach ($dir as $file) {
 					if ($file->isFile()) {
 						unlink($realPath . DIRECTORY_SEPARATOR . '.thumbs' . DIRECTORY_SEPARATOR . $file->getFilename());
 					}
 				}
+				
+				// If not unset will cause Permission denied errors
+				// As the handle stays open
+				unset($dir);
+				unset($file);
+				
 				// remove the directory itself
-				@rmdir($realPath . '/.thumbs');
+				if(!@rmdir($realPath . DIRECTORY_SEPARATOR . '.thumbs')) {
+					$last_error = error_get_last();
+					$response = $this->getResponse();
+					$response->setError( new Json_Server_Error("Cannot delete .thumbs directory\n\n" . $last_error['message']));
+					$response->sendResponse();
+					exit(0);
+				}
 			}
-
+			
 			// Now delete the main path files
 			foreach ($files as $f) {
 				unlink($realPath . DIRECTORY_SEPARATOR . $f);
 			}
 
 			if (!@rmdir($realPath)) {
-				$result['error'] = 'cantDelete';
+				$response = $this->getResponse();
+				$response->setError( new Json_Server_Error("Error deleting folder"));
+				$response->sendResponse();
+				exit(0);
 			}
 		}
 		
 		
-		echo json_encode($result);
+		return "ok";
 	}
 	
 	public function renamefileAction()
-	{
-		header('Content-Type: text/html; charset=utf-8');
-		
-		$type = $_POST['pathtype'];
-		$dir = $_POST['path'];
-		$filename = $_POST['filename'];
-		$newname = $_POST['newname'];
-		
-		
-		$dir = $this->AccessDir($dir, $type);
+	{	
+		$dir = $this->AccessDir($this->getRequest()->getParam('path'), $this->getRequest()->getParam('type'));
 		if (!$dir) {
-			echo "error";
 			return;
 		}
 
+		$filename = $this->getRequest()->getParam('filename');
+		if( null === $filename ) {
+			$response = $this->getResponse();
+			$response->setError( new Json_Server_Error("Missing original filename"));
+			$response->sendResponse();
+			exit(0);
+		}
 		$filename = trim($filename);
-
 		if (empty($filename)) {
-			echo "error";
-			return;
+			$response = $this->getResponse();
+			$response->setError( new Json_Server_Error("Missing original filename"));
+			$response->sendResponse();
+			exit(0);
 		}
 
 		if (!is_dir($dir . '/.thumbs')) {
-			echo "error";
-			return;
+			$response = $this->getResponse();
+			$response->setError( new Json_Server_Error("Directory .thumbs could not de found"));
+			$response->sendResponse();
+			exit(0);
 		}
 
 
@@ -460,15 +500,17 @@ class TinyImageManager {
 			}
 			fclose($dbfilehandle);
 		} else {
-			echo "error";
-			return;
+			$response = $this->getResponse();
+			$response->setError( new Json_Server_Error("Missing database file"));
+			$response->sendResponse();
+			exit(0);
 		}
 
 		$files = unserialize($dbdata);
 
 		foreach ($files as $file => $fdata) {
 			if ($file == $filename) {
-				$files[$file]['name'] = $newname;
+				$files[$file]['name'] = $this->getRequest()->getParam('newname');
 				break;
 			}
 		}
@@ -477,7 +519,7 @@ class TinyImageManager {
 		fwrite($dbfilehandle, serialize($files));
 		fclose($dbfilehandle);
 
-		echo "ok";
+		return "ok";
 	}
 	
 	
@@ -490,29 +532,33 @@ class TinyImageManager {
 	 * @return path|false
 	 */
 	protected function AccessDir($requestDirectory, $typeDirectory) {
-		$error = array("error" => 'accessDirError');
 		
 		if (strcasecmp($typeDirectory, 'image') === 0) {
 			$full_request_images_dir = realpath($this->dir['image'] . DIRECTORY_SEPARATOR . $requestDirectory);
 			if (strpos($full_request_images_dir, $this->dir['image']) === 0) {
 				return $full_request_images_dir;
 			} else {
-				// trigger_error("Directory traversal: " . $full_request_images_dir . " -- " . $this->dir['image'] . DIRECTORY_SEPARATOR . $requestDirectory, E_USER_NOTICE);
-				$error = array("error" => 'dirTraversal'); 				
+				$response = $this->getResponse();
+				$response->setError( new Json_Server_Error("Possible directory traversal detected"));
+				$response->sendResponse();
+				exit(0);				
 			}
 		} elseif (strcasecmp($typeDirectory, 'file') === 0) {
 			$full_request_files_dir = realpath($this->dir['file'] . DIRECTORY_SEPARATOR . $requestDirectory);
 			if (strpos($full_request_files_dir, $this->dir['file']) === 0) {
 				return $full_request_files_dir;
 			} else {
-				$error = array("error" => 'dirTraversal');
+				$response = $this->getResponse();
+				$response->setError( new Json_Server_Error("Possible directory traversal detected"));
+				$response->sendResponse();
+				exit(0);
 			}
 		}
 		
-    	//return false;
-    	header('Content-Type: application/json');
-		echo json_encode($error);
-		exit(1);
+    	$response = $this->getResponse();
+		$response->setError( new Json_Server_Error("Somehow the requested directory could not be located"));
+		$response->sendResponse();
+		exit(0);
 	}
 
 
@@ -545,9 +591,6 @@ class TinyImageManager {
 				}
 			}	
 		}
-		
-		// trigger_error("Forged path: " . $path, E_USER_WARNING);
-		
 		
 		$struct[$beginFolder]['path'] = $path;
 		$tmp = preg_split('[\\/]', $beginFolder);
@@ -742,7 +785,6 @@ class TinyImageManager {
 	}
 
 	function updateDbFile($inputDir, $type, $return, $newData = array()) {
-		// trigger_error("UpdateDBFile", E_USER_NOTICE);
 		$dir = $this->AccessDir($inputDir, $type);
 		if (!$dir) {
 			return false;
@@ -997,7 +1039,6 @@ class TinyImageManager {
 	
 
 	function DelFile($pathtype, $path, $md5, $filename) {
-		// trigger_error("DelFile", E_USER_NOTICE);
 		$path = $this->AccessDir($path, $pathtype);
 		if (!$path) {
 			return false;
@@ -1049,7 +1090,7 @@ class TinyImageManager {
 			}
 		}
 
-		return 'error';
+		return false;
 	}
 
 
@@ -1096,6 +1137,10 @@ class TinyImageManager {
 		return $string;
 	}
 
+	public function getRequest()
+	{
+		return $this->_request;
+	}
 }
 
 $letsGo = new TinyImageManager();

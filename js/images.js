@@ -1,5 +1,4 @@
 (function () {
-	"use strict";
 	var standAlone = false, ImagesDialog = {}, popup;
   
 	var tinyMCEPopup = window.tinyMCEPopup;
@@ -106,16 +105,31 @@
 			_setFileWindowHeight();
 		}).resize();
 		ajaxPath = 'connector/' + connector + '/';
+		// Setup JSON RPC
+		$.jsonRPC.setup({
+			endPoint: 'connector/' + connector + '/'
+		});
+		
 		$filesForm.attr('action', ajaxPath);
 
 		$loader.show();
-		$.ajax({
-			type: "POST",
-			url: ajaxPath,
-			data: {'action': 'setupData', 'lang': getURLParam('lang'), 'folders': folders},
-			dataType: 'json',
-			success: function (data) {
-				$LANG = eval('('+data.lang+')');
+		
+		var jsonRpc = {
+				'jsonrpc': '2.0',
+				'method': 'setupData',
+				'params': {
+					'lang': getURLParam('lang'), 
+					'folders': folders
+				},
+				'id': 1
+		};
+		
+		$.jsonRPC.request('setupData', {
+			params: {'lang': getURLParam('lang'), 'folders': folders},
+			success: function(result) {
+				// Do something with the result here
+				// It comes back as an RPC 2.0 compatible response object
+				$LANG = eval('('+result.result.lang+')');
 				if ($LANG['lang'] && $LANG['lang'] !== 'en') {
 					$('body').append('<script type="text/javascript" src="langs/'+$LANG['lang']+'_plupload.js"><\/script>');
 				}
@@ -129,8 +143,20 @@
 					}
 				});
 
-				$UPLOAD_DATA = data.upload;
+				$UPLOAD_DATA = result.result.upload;
 				openFolder();
+			},
+			error: function(result) {
+				// Result is an RPC 2.0 compatible response object
+				if (result.error) {
+					if (result.error.message) {
+						alert(result.error.message);
+					} else {
+						alert('Unknown error');
+					}
+				} else {
+					alert('Unknown error');
+				}
 			}
 		});
 	}
@@ -152,51 +178,38 @@
 			callback = function () {};
 		}
 
-		$.ajax({
-			type: "POST",
-			url: ajaxPath,
-			data: requestData,
-			dataType: 'json',
-			success: function (data) {
+		$.jsonRPC.request('openFolder', {
+			params: requestData,
+			success: function(result) {
+				// Do something with the result here
+				// It comes back as an RPC 2.0 compatible response object
 				$loader.hide();
 				
-				if (data.error) {
-					var errorStr;
-					switch (data.error) {
-						case 'folderExists':
-							errorStr = 'Folder with this name already exists';
-							break;
-						case 'createFolderError':
-							errorStr = 'Error creating folder';
-							break;
-						case 'wrongFolderName':
-							errorStr = 'Folder name can only contain latin letters, digits and underscore';
-							break;
-						case 'folderAccessDenied':
-							errorStr = 'Folder access denied';
-							break;
-						case 'dirTraversal':
-							errorStr = 'Directory traversal detected';
-							break;
-						case 'accessDirError':
-							errorStr = 'Directory could not be located';
-						default:
-							errorStr = 'Unknown error';
-							break;
+				$addr.html(result.result.path);
+				if (forceTreeReload) {
+					$tree.html(result.result.tree);
+				}
+				$paginator.html(result.result.pages);
+				$filesDiv.html(result.result.files);
+				showFootInfo();
+				callback();
+			},
+			error: function(result) {
+				// Result is an RPC 2.0 compatible response object
+				$loader.hide();
+				
+				if (result.error) {
+					if (result.error.message) {
+						alert(_t(result.error.message));
+					} else {
+						alert('Unknown error');
 					}
-					alert(_t(errorStr));
 				} else {
-					$addr.html(data.path);
-					if (forceTreeReload) {
-						$tree.html(data.tree);
-					}
-					$paginator.html(data.pages);
-					$filesDiv.html(data.files);
-					showFootInfo();
-					callback();
+					alert('Unknown error');
 				}
 			}
 		});
+		
 		$loader.hide();
 	}
 
@@ -320,7 +333,8 @@
 			multipart_params: {action: 'uploadfile', pathtype: path.type, path: path.path, 'folders': folders},
 			headers: {action: 'uploadfile', pathtype: path.type, path: path.path, 'folders': folders},
 			max_file_size: '50mb',
-			url: ajaxPath,
+			/*url: ajaxPath,*/
+			url: $.jsonRPC.endPoint,
 			resize: resizeObj,
 			filters: [filterObj]
 		});
@@ -411,40 +425,35 @@
 		// Запрос на создание папки
 		// A request to create a folder
 		var activeFolder = $('.folderAct'), type = activeFolder.attr('pathtype'), path = activeFolder.attr('path'), newFolderName = $newFolderInput.val(), path_will = path + '/' + newFolderName;
-		$.ajax({
-			type: "POST",
-			url: ajaxPath,
-			dataType: 'json',
-			data: {'action': 'newfolder', 'type': type, 'path': path, 'name': newFolderName, 'folders': folders},
-			success: function (data) {
+		
+		$.jsonRPC.request('newFolder', {
+			params: {'type': type, 'path': path, 'name': newFolderName, 'folders': folders},
+			success: function(result) {
+				// Do something with the result here
+				// It comes back as an RPC 2.0 compatible response object
 				$loader.hide();
-				if (data.error) {
-					var errorStr;
-					switch (data.error) {
-						case 'folderExists':
-							errorStr = 'Folder with this name already exists';
-							break;
-						case 'createFolderError':
-							errorStr = 'Error creating folder';
-							break;
-						case 'wrongFolderName':
-							errorStr = 'Folder name can only contain latin letters, digits and underscore';
-							break;
-						case 'folderAccessDenied':
-							errorStr = 'Folder access denied';
-							break;
-						default:
-							errorStr = 'Unknown error';
-							break;
+				
+				canCancelFolder = true;
+				openFolder(type, path_will, cancelNewFolder(), true);
+			},
+			error: function(result) {
+				// Result is an RPC 2.0 compatible response object
+				$loader.hide();
+				
+				if (result.error) {
+					if (result.error.message) {
+						alert(_t(result.error.message));
+					} else {
+						alert('Unknown error');
 					}
-					alert(_t(errorStr));
-					$newFolderInput.focus();
 				} else {
-					canCancelFolder = true;
-					openFolder(type, path_will, cancelNewFolder(), true);
+					alert('Unknown error');
 				}
+				$newFolderInput.focus();
 			}
 		});
+		
+		$loader.hide();
 	}
 
 	$('#menuSaveFolder').click(saveNewFolder).hover(function () {
@@ -459,29 +468,28 @@
 		var path = getCurrentPath();
 		if (confirm(_t('Delete folder') + ' ' + path.path + '?')) {
 			$loader.show();
-			$.ajax({
-				type: "POST",
-				url: ajaxPath,
-				dataType: 'json',
-				data: {'action': 'delfolder', 'type': path.type, 'path': path.path, 'folders': folders},
-				success: function (data) {
-					if (data.error) {
-						$loader.hide();
-						var errorText = '';
-						switch (data.error) {
-							case 'rootFolder':
-								errorText = 'Root folder cannot be deleted!';
-								break;
-							case 'hasChildFolders':
-								errorText = 'Folder cannot be delete while it has subfolders';
-								break;
-							case 'cantDelete':
-								errorText = 'Error deleting folder';
-								break;
+			
+			$.jsonRPC.request('delFolder', {
+				params: {'type': path.type, 'path': path.path, 'folders': folders},
+				success: function(result) {
+					// Do something with the result here
+					// It comes back as an RPC 2.0 compatible response object
+					$loader.hide();
+					
+					openFolder(path.type, getParentDir(path.path), '', true);
+				},
+				error: function(result) {
+					// Result is an RPC 2.0 compatible response object
+					$loader.hide();
+					
+					if (result.error) {
+						if (result.error.message) {
+							alert(_t(result.error.message));
+						} else {
+							alert(result.error);
 						}
-						alert(_t(errorText));
 					} else {
-						openFolder(path.type, getParentDir(path.path), '', true);
+						alert('Unknown error');
 					}
 				}
 			});
@@ -496,7 +504,7 @@
 		if (!files.length) {
 			alert(_t("Select files for deleting.\n\nYou can select several files by holding CTRL key while clicking them."));
 		} else {
-			var confirmText, requestData = {'action': 'delfile', 'type': path.type, 'path': path.path, 'folders': folders}, filesData = [];
+			var confirmText, requestData = {'type': path.type, 'path': path.path, 'folders': folders}, filesData = [];
 			if (files.length === 1) {
 				confirmText = _t('Delete file') + ' \"' + files.attr('filename') + '\"?';
 				filesData.push({"md5": files.attr('md5'), 'filename': files.attr('filename')});
@@ -511,13 +519,21 @@
 			if (confirm(confirmText)) {
 				$loader.show();
 				$.extend(requestData, {'files': filesData});
-				$.ajax({
-					type: "POST",
-					url: ajaxPath,
-					dataType: 'json',
-					data: requestData,
-					success: function (data) {
+				
+				$.jsonRPC.request('delFile', {
+					params: requestData,
+					success: function(result) {
+						// Do something with the result here
+						// It comes back as an RPC 2.0 compatible response object
 						$loader.hide();
+						
+						openFolder(path.type, path.path, '', true, path.page);
+					},
+					error: function(result) {
+						// Result is an RPC 2.0 compatible response object
+						$loader.hide();
+						
+						/*
 						var errors = [];
 						for (var obj in data) {
 							if (data[obj] === 'error') {
@@ -527,6 +543,18 @@
 						if (errors.length) {
 							alert(_t('There were errors removing this files: ') + errors.join(', ') + '.');
 						}
+						*/
+						
+						if (result.error) {
+							if (result.error.message) {
+								alert(_t(result.error.message));
+							} else {
+								alert(result.error);
+							}
+						} else {
+							alert('Unknown error');
+						}
+						
 						openFolder(path.type, path.path, '', true, path.page);
 					}
 				});
@@ -703,22 +731,40 @@
 		// Запрос
 		// Request
 		var path = getCurrentPath(), newname = $('#fileNameValue').val();
-		$.ajax({
-			type: "POST",
-			url: ajaxPath,
-			data: 'action=renamefile&path=' + path.path + '&pathtype=' + path.type + '&filename='
-			      + $('.imageBlockAct').attr('filename') + '&newname=' + newname + '&folders=' + folders,
-			success: function (data) {
+		
+		$.jsonRPC.request('renameFile', {
+			params: {
+				'path': path.path,
+				'type': path.type,
+				'filename': $('.imageBlockAct').attr('filename'),
+				'newname': newname,
+				'folders': folders
+			},
+			success: function(result) {
+				// Do something with the result here
+				// It comes back as an RPC 2.0 compatible response object
 				$loader.hide();
-				if (data != 'error') {
-					$('#fileName').html(newname);
-					$('.imageBlockAct').attr('fname', newname);
-					$('.imageBlockAct .imageName').text(newname);
+				
+				$('#fileName').html(newname);
+				$('.imageBlockAct').attr('fname', newname);
+				$('.imageBlockAct .imageName').text(newname);
+			},
+			error: function(result) {
+				// Result is an RPC 2.0 compatible response object
+				$loader.hide();
+				
+				if (result.error) {
+					if (result.error.message) {
+						alert(_t(result.error.message));
+					} else {
+						alert(result.error);
+					}
 				} else {
-					alert(data);
+					alert('Unknown error');
 				}
 			}
 		});
+		
 
 		$('#fileNameSave').hide();
 		$('#fileNameEdit').show();
