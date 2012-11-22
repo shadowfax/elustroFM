@@ -28,29 +28,7 @@ class TinyImageManager extends Json_Server {
 	 * @return TinyImageManager
 	 */
 	public function __construct() 
-	{
-		/*
-		// Bypass the constructor on file uploads
-		if (isset($_POST['action'])) {
-			if (strcasecmp($_POST['action'], 'uploadFile') === 0) {
-				// this is a special case as it is not purelly JSON-RPC
-				// Lets fake things a little
-				$this->_request = new Json_Server_Request();
-				$this->_request->setVersion("2.0");
-				
-				$params = array();
-				if (isset($_POST['folders'])) {
-					$params['folders'] = $_POST['folders'];
-				}
-				$this->_request->setParams($params);
-				
-				// call the method
-				$this->uploadfileAction();
-				return;	
-			}
-		}
-		*/
-		
+	{	
 		// Initialize the JSON-RPC server
 		parent::__construct();
 	}
@@ -750,6 +728,8 @@ class TinyImageManager extends Json_Server {
 
 		// проверяем размер загруженного изображения (только для загруженных в папку изображений)
 		// и уменьшаем его
+		// check the size of the loaded image (only downloaded to a folder of images)
+		// and reduce if needed
 		if ($type == 'image' && in_array(strtolower($file_info['extension']), $this->_config['ALLOWED_IMAGES'])) {
 			$maxWidth = MAX_WIDTH ? MAX_WIDTH : '100%';
 			$maxHeight = MAX_HEIGHT ? MAX_HEIGHT : '100%';
