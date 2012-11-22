@@ -12,7 +12,7 @@ define('DIR_FILES', '/examples/uploaded/files');
 define('WIDE_IMAGE_LIB', 'WideImage/WideImage.php');
 
 //Maximum width and height of uploaded images. All larger images will be shrinked. You can set only one dimension.
-define('MAX_WIDTH', 800);
+define('MAX_WIDTH', 0);
 define('MAX_HEIGHT', 0);
 
 //Width and height of thumbnail images. You can set only one dimension.
