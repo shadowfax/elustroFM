@@ -137,15 +137,7 @@
 				$loader.hide();
 				
 				// Result is an RPC 2.0 compatible response object
-				if (result.error) {
-					if (result.error.message) {
-						alert(result.error.message);
-					} else {
-						alert('Unknown error');
-					}
-				} else {
-					alert('Unknown error');
-				}
+				alert(result.error.message);
 			}
 		});
 	}
@@ -187,15 +179,7 @@
 				// Result is an RPC 2.0 compatible response object
 				$loader.hide();
 				
-				if (result.error) {
-					if (result.error.message) {
-						alert(_t(result.error.message));
-					} else {
-						alert('Unknown error');
-					}
-				} else {
-					alert('Unknown error');
-				}
+				alert(_t(result.error.message));
 			}
 		});
 		
@@ -325,15 +309,7 @@
 				// Result is an RPC 2.0 compatible response object
 				$loader.hide();
 				
-				if (result.error) {
-					if (result.error.message) {
-						alert(_t(result.error.message));
-					} else {
-						alert('Unknown error');
-					}
-				} else {
-					alert('Unknown error');
-				}
+				alert(_t(result.error.message));
 			}
 		});
 	});
@@ -438,15 +414,8 @@
 				// Result is an RPC 2.0 compatible response object
 				$loader.hide();
 				
-				if (result.error) {
-					if (result.error.message) {
-						alert(_t(result.error.message));
-					} else {
-						alert('Unknown error');
-					}
-				} else {
-					alert('Unknown error');
-				}
+				alert(_t(result.error.message));
+				
 				$newFolderInput.focus();
 			}
 		});
@@ -479,16 +448,8 @@
 				error: function(result) {
 					// Result is an RPC 2.0 compatible response object
 					$loader.hide();
-					
-					if (result.error) {
-						if (result.error.message) {
-							alert(_t(result.error.message));
-						} else {
-							alert(result.error);
-						}
-					} else {
-						alert('Unknown error');
-					}
+
+					alert(_t(result.error.message));
 				}
 			});
 		}
@@ -543,15 +504,7 @@
 						}
 						*/
 						
-						if (result.error) {
-							if (result.error.message) {
-								alert(_t(result.error.message));
-							} else {
-								alert(result.error);
-							}
-						} else {
-							alert('Unknown error');
-						}
+						alert(_t(result.error.message));
 						
 						openFolder(path.type, path.path, '', true, path.page);
 					}
@@ -750,16 +703,8 @@
 			error: function(result) {
 				// Result is an RPC 2.0 compatible response object
 				$loader.hide();
-				
-				if (result.error) {
-					if (result.error.message) {
-						alert(_t(result.error.message));
-					} else {
-						alert(result.error);
-					}
-				} else {
-					alert('Unknown error');
-				}
+
+				alert(_t(result.error.message));
 			}
 		});
 		

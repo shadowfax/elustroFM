@@ -304,7 +304,7 @@ class TinyImageManager extends Json_Server {
 					$response->setError( new Json_Server_Error("Folder cannot be delete while it has subfolders"));
 					$response->sendResponse();
 					exit(0);
-				} elseif ($file->isFile() && (substr($this->getFilename(), 0, 1) !== '.')) {
+				} elseif ($file->isFile() && (substr($file->getFilename(), 0, 1) !== '.')) {
 					$files[] = $file;
 				}	
 			}
@@ -812,54 +812,49 @@ class TinyImageManager extends Json_Server {
 	}
 
 
-  function ShowDir($inputDir, $type, $page) {
+	function ShowDir($inputDir, $type, $page) {
 
-    $dir = $this->CallDir($inputDir, $type, $page);
+		$dir = $this->CallDir($inputDir, $type, $page);
 
-    if (!is_array($dir)) {
-      $dir = $this->CallDir($inputDir, $type, 1);
-    }
-    //    if (!is_array($dir)) {
-    //      $dir = $this->CallDir('', $type, 1);
-    //    }
+		if (!is_array($dir)) {
+			$dir = $this->CallDir($inputDir, $type, 1);
+		}
 
-    if (!is_array($dir)) {
-      return '';
-    }
+		if (!is_array($dir)) {
+			return '';
+		}
 
-    $ret = '';
-    foreach ($dir as $v) {
-      $thumb = $this->GetThumb($v['path'], $v['md5'], $v['filename'], 2, 100, 100);
-      if ((WIDTH_TO_LINK > 0 && $v['width'] > WIDTH_TO_LINK) || (HEIGHT_TO_LINK > 0 && $v['height'] > HEIGHT_TO_LINK)
-      ) {
-        $middle_thumb = $this->GetThumb($v['path'], $v['md5'], $v['filename'], 0, WIDTH_TO_LINK, HEIGHT_TO_LINK);
-        list($middle_width, $middle_height) = getimagesize($middle_thumb);
-        $middle_thumb_attr = 'fmiddle="' . $middle_thumb . '" fmiddlewidth="' . $middle_width . '" fmiddleheight="' . $middle_height . '" fclass="' . CLASS_LINK . '" frel="' . REL_LINK . '"';
-      } else {
-        $middle_thumb = '';
-        $middle_thumb_attr = '';
-      }
+		$ret = '';
+		foreach ($dir as $v) {
+			$thumb = $this->GetThumb($v['path'], $v['md5'], $v['filename'], 2, 100, 100);
+			if ((WIDTH_TO_LINK > 0 && $v['width'] > WIDTH_TO_LINK) || (HEIGHT_TO_LINK > 0 && $v['height'] > HEIGHT_TO_LINK)) {
+				$middle_thumb = $this->GetThumb($v['path'], $v['md5'], $v['filename'], 0, WIDTH_TO_LINK, HEIGHT_TO_LINK);
+				list($middle_width, $middle_height) = getimagesize($middle_thumb);
+				$middle_thumb_attr = 'fmiddle="' . $middle_thumb . '" fmiddlewidth="' . $middle_width . '" fmiddleheight="' . $middle_height . '" fclass="' . CLASS_LINK . '" frel="' . REL_LINK . '"';
+			} else {
+				$middle_thumb = '';
+				$middle_thumb_attr = '';
+			}
 
-      $img_params = '';
-      $div_params = '';
+			$img_params = '';
+			$div_params = '';
 
-      if ($type == 'file' || in_array($v['ext'], $this->_config['ALLOWED_FILES'])) {
-        $img_params = '';
-        //        $div_params = 'style="width: 100px; height: 100px; padding-top: 16px;"';
-        $div_params = 'fileIcon';
-      }
+			if ($type == 'file' || in_array($v['ext'], $this->_config['ALLOWED_FILES'])) {
+				$img_params = '';
+				$div_params = 'fileIcon';
+			}
 
-      $filename = $v['name'];
+			$filename = $v['name'];
 
-      if (mb_strlen($filename) > 30) {
-        $filename = mb_substr($filename, 0, 25, 'UTF-8') . '...';
-      }
+			if (mb_strlen($filename) > 30) {
+				$filename = mb_substr($filename, 0, 25, 'UTF-8') . '...';
+			}
 
-      $ret .= '<div class="imageBlock0" filename="' . $v['filename'] . '" fname="' . $v['name'] . '" type="' . $type . '" ext="' . $v['ext'] . '" path="' . $v['path'] . '" linkto="' . $v['link'] . '" fsize="' . $v['size'] . '" fsizetext="' . $this->bytes_to_str($v['size']) . '" date="' . date('d.m.Y H:i', $v['date']) . '" fwidth="' . $v['width'] . '" fheight="' . $v['height'] . '" md5="' . $v['md5'] . '" ' . $middle_thumb_attr . '><div class="imageBlock1"  title="' . $v['name'] . '"><div class="imageImage ' . $div_params . '"><img src="' . $thumb . '" ' . $img_params . ' alt="' . $v['name'] . '" /></div><div class="imageName">' . $filename . '</div></div></div>';
-    }
+			$ret .= '<div class="imageBlock0" filename="' . $v['filename'] . '" fname="' . $v['name'] . '" type="' . $type . '" ext="' . $v['ext'] . '" path="' . $v['path'] . '" linkto="' . $v['link'] . '" fsize="' . $v['size'] . '" fsizetext="' . $this->bytes_to_str($v['size']) . '" date="' . date('d.m.Y H:i', $v['date']) . '" fwidth="' . $v['width'] . '" fheight="' . $v['height'] . '" md5="' . $v['md5'] . '" ' . $middle_thumb_attr . '><div class="imageBlock1"  title="' . $v['name'] . '"><div class="imageImage ' . $div_params . '"><img src="' . $thumb . '" ' . $img_params . ' alt="' . $v['name'] . '" /></div><div class="imageName">' . $filename . '</div></div></div>';
+		}
 
-    return $ret;
-  }
+		return $ret;
+	}
 
 	function showPages($path, $type, $activePage) {
 		$result = '';
