@@ -79,13 +79,11 @@
 	    $filesDiv = $('#files'), 
 	    defaultPath = true, 
 	    $newFolderInput = $('#newFolderBlock input'),  
-	    ajaxPath = '', 
 	    folderLoadFlag = false, 
 	    ctrlState = false, 
 	    $win = $(window), 
 	    $filesForm = $('#filesForm'), 
 	    $LANG = {}, 
-	    $UPLOAD_DATA = {},
 	    folders = "";
 
 	function init(connector) {
@@ -104,31 +102,21 @@
 			e.preventDefault();
 			_setFileWindowHeight();
 		}).resize();
-		ajaxPath = 'connector/' + connector + '/';
+
 		// Setup JSON RPC
 		$.jsonRPC.setup({
 			endPoint: 'connector/' + connector + '/'
 		});
 		
-		$filesForm.attr('action', ajaxPath);
+		$filesForm.attr('action', $.jsonRPC.endPoint);
 
 		$loader.show();
-		
-		var jsonRpc = {
-				'jsonrpc': '2.0',
-				'method': 'setupData',
-				'params': {
-					'lang': getURLParam('lang'), 
-					'folders': folders
-				},
-				'id': 1
-		};
-		
+	
 		$.jsonRPC.request('setupData', {
 			params: {'lang': getURLParam('lang'), 'folders': folders},
 			success: function(result) {
-				// Do something with the result here
-				// It comes back as an RPC 2.0 compatible response object
+				$loader.hide();
+
 				$LANG = eval('('+result.result.lang+')');
 				if ($LANG['lang'] && $LANG['lang'] !== 'en') {
 					$('body').append('<script type="text/javascript" src="langs/'+$LANG['lang']+'_plupload.js"><\/script>');
@@ -143,10 +131,11 @@
 					}
 				});
 
-				$UPLOAD_DATA = result.result.upload;
 				openFolder();
 			},
 			error: function(result) {
+				$loader.hide();
+				
 				// Result is an RPC 2.0 compatible response object
 				if (result.error) {
 					if (result.error.message) {
@@ -315,13 +304,6 @@
 	// Open file uploader
 	$('#menuUploadFiles').click(function () {
 		var path = getCurrentPath(), filterObj = {}, resizeObj = {};
-		if (path.type === 'image') {
-			filterObj = {title: _t('Image'), extensions: $UPLOAD_DATA.images.allowed.join(',')};
-			resizeObj = {width: $UPLOAD_DATA.images.width, height: $UPLOAD_DATA.images.height, quality: 90};
-		} else if (path.type === 'file') {
-			filterObj = {title: _t('All files'), extensions:$UPLOAD_DATA.files.allowed.join(',')};
-			resizeObj = {width: 0, height: 0, quality: 0};
-		}
 
 		$('#normalPathVal').val(path.path);
 		$('#normalPathtypeVal').val(path.type);
@@ -336,16 +318,7 @@
 				$loader.hide();
 				$('#upload').show();
 			
-				$("#uploader").pluploadQueue({
-					runtimes: result.result.runtimes,
-					multipart_params: {'type': path.type, 'path': path.path, 'folders': folders},
-					headers: {'type': path.type, 'path': path.path, 'folders': folders},
-					max_file_size: result.result.max_file_size,
-					/*url: ajaxPath,*/
-					url: result.result.url,
-					resize: resizeObj,
-					filters: [filterObj]
-				});
+				$("#uploader").pluploadQueue( result.result );
 				
 			},
 			error: function(result) {

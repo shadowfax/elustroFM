@@ -104,11 +104,6 @@ class TinyImageManager extends Json_Server {
 			$return['lang'] = file_get_contents($langFile);
 		}
 
-		$return['upload']['images']['allowed'] = $this->_config['ALLOWED_IMAGES'];
-		$return['upload']['images']['width'] = MAX_WIDTH;
-		$return['upload']['images']['height'] = MAX_HEIGHT;
-		$return['upload']['files']['allowed'] = array_merge($this->_config['ALLOWED_IMAGES'], $this->_config['ALLOWED_FILES']);
-		
 		return $return;
 	}
 	
@@ -222,15 +217,50 @@ class TinyImageManager extends Json_Server {
 	 */
 	public function uploadfileAction()
 	{
+		$type = $this->getRequest()->getParam('type');
+		$path = $this->getRequest()->getParam('path');
+		$folders = $this->getRequest()->getParam('folders');
+		
 		// ToDo: Try the config first
 		$url = dirname($_SERVER['REQUEST_URI']) . '/upload.php';
 		
+		if (strcasecmp($type, 'image') === 0) {
+			$filters = array(
+				'title'			=> 'All Images',
+				'extensions'	=> implode(",", $this->_config['ALLOWED_IMAGES'])
+			);
+			
+			if ((MAX_WIDTH > 0) || (MAX_HEIGHT > 0)) {
+				$resize = array(
+					'width'		=> MAX_WIDTH,
+					'height'	=> MAX_HEIGHT,
+					'quality'	=> 90
+				);
+			}
+		} elseif (strcasecmp($type, 'file') === 0) {
+			$filters = array(
+				'title'			=> 'All Images',
+				'extensions'	=> implode(",", $this->_config['ALLOWED_FILES'])
+			);
+		} else {
+			$response = $this->getResponse();
+			$response->setError( new Json_Server_Error("Unknown file manager type"));
+			$response->sendResponse();
+		}
+		
 		// return the setup for plupload
 		$result = array(
-			'runtimes'		=> 'html5,html4',
-			'max_file_size'	=> '50mb',
-			'url'			=> $url
+			'multipart_params'	=> array('type' => $type, 'path' => $path, 'folders' => $folders),
+			'headers'			=> array('type' => $type, 'path' => $path, 'folders' => $folders),
+			'runtimes'			=> 'html5,html4',
+			'max_file_size'		=> '50mb',
+			'url'				=> $url,
+			'filters'			=> array($filters)
 		);
+		
+		if(isset($resize)) {
+			$result['resize'] = $resize;
+		}
 		
 		return $result;
 	}

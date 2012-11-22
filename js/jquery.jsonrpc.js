@@ -186,7 +186,11 @@
       // Determines the appropriate request URL to call for a request
       _requestUrl: function(url) {
         url = url || this.endPoint;
-        return url + '?tm=' + new Date().getTime()
+        if (url.indexOf("?") < 0) {
+          return url + "?tm=" + new Date().getTime();
+        } else {
+          return url + "&tm=" + new Date().getTime();
+        }
       },
 
       // Creates an RPC suitable request object
@@ -205,7 +209,15 @@
       // Handles calling of error callback function
       _requestError: function(json, error) {
         if (typeof(error) !== 'undefined' && typeof(error) === 'function') {
-            error(this._response());
+          if(typeof(json.responseText) === 'string') {
+            try {
+              error(eval('(' + json.responseText + ')'));
+            } catch(e) {
+              error(this._response());
+            }
+          } else {  
+                error(this._response());    
+          }
         }
       },
 
